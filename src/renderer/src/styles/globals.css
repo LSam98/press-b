@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    @apply select-none;
+  }
+
+  body {
+    @apply bg-neutral-900 text-neutral-300 font-sans antialiased;
+  }
+}
+
+/* Draggable regions for frameless window */
+.draggable {
+  -webkit-app-region: drag;
+}
+
+.draggable-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Custom animations */
+@layer components {
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideOut {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 300ms ease-out;
+  }
+
+  .animate-slideOut {
+    animation: slideOut 300ms ease-out forwards;
+  }
+
+  .animate-pulse-brief {
+    animation: pulse 600ms ease-in-out;
+  }
+}
