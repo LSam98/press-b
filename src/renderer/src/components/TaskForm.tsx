@@ -8,7 +8,7 @@ interface TaskFormProps {
   initialTask?: Task
 }
 
-const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'NOTE', 'CHEATSHEET', 'PENDING']
+const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'PENDING']
 const PRIORITIES: Priority[] = ['low', 'medium', 'high']
 const DRAFT_CACHE_KEY = 'taskform-draft'
 

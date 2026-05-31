@@ -13,7 +13,7 @@ interface TaskListProps {
   onToggleStatus: (id: string) => void
 }
 
-const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'NOTE', 'CHEATSHEET', 'PENDING']
+const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'PENDING']
 
 export default function TaskList({
   tasks,
@@ -146,24 +146,24 @@ export default function TaskList({
           ))}
         </div>
 
-        {/* Linked File Filter */}
+        {/* Linked File Filter — dropdown to keep UI clean as project grows */}
         {linkedFiles.length > 0 && (
-          <div className="flex gap-1 flex-wrap">
+          <select
+            value={linkedFileFilter}
+            onChange={(e) => setLinkedFileFilter(e.target.value)}
+            className={`w-full text-xs px-2 py-1 rounded border transition ${
+              linkedFileFilter
+                ? 'bg-blue-900 border-blue-600 text-blue-200'
+                : 'bg-neutral-700 border-neutral-600 text-neutral-300'
+            } focus:outline-none focus:border-blue-500`}
+          >
+            <option value="">🗂 Project Files</option>
             {linkedFiles.map((file) => (
-              <button
-                key={file}
-                onClick={() => setLinkedFileFilter(linkedFileFilter === file ? '' : file)}
-                className={`text-xs px-2 py-0.5 rounded transition flex items-center gap-1 ${
-                  linkedFileFilter === file
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                }`}
-                title={file}
-              >
-                🔗 {file.split('/').pop()?.slice(0, 12) || file}
-              </button>
+              <option key={file} value={file}>
+                {file}
+              </option>
             ))}
-          </div>
+          </select>
         )}
 
         {/* Tag Filter */}

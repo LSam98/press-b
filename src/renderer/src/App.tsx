@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import TitleBar from './components/TitleBar'
 import TaskList from './components/TaskList'
 import PinnedNotes from './components/PinnedNotes'
+import CheatsheetPanel from './components/CheatsheetPanel'
 import SettingsPanel from './components/SettingsPanel'
 import { useTasks } from './hooks/useTasks'
 import { usePinnedNotes } from './hooks/usePinnedNotes'
 import { IDE, DevFloatData } from './types'
 
-type Tab = 'tasks' | 'notes' | 'settings'
+type Tab = 'tasks' | 'notes' | 'cheatsheet' | 'settings'
 
 function App(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>('tasks')
@@ -204,6 +205,16 @@ function App(): React.JSX.Element {
           Notes
         </button>
         <button
+          onClick={() => setActiveTab('cheatsheet')}
+          className={`px-3 py-1 text-sm font-medium transition ${
+            activeTab === 'cheatsheet'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-neutral-500 hover:text-neutral-300'
+          }`}
+        >
+          Cheatsheet
+        </button>
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-3 py-1 text-sm font-medium transition ${
             activeTab === 'settings'
@@ -229,6 +240,7 @@ function App(): React.JSX.Element {
         {activeTab === 'notes' && (
           <PinnedNotes notes={notes} onAddNote={addNote} onUpdateNote={updateNote} onDeleteNote={deleteNote} />
         )}
+        {activeTab === 'cheatsheet' && <CheatsheetPanel />}
         {activeTab === 'settings' && (
           <SettingsPanel
             projectRoot={projectRoot}

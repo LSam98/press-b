@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as http from 'http'
 import { execFile } from 'child_process'
 import { watch } from 'chokidar'
 
@@ -334,6 +335,7 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
     // Resolve relative paths against the active project root (not process.cwd())
     const base = currentProjectRoot || process.cwd()
     const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(base, filePath)
+    const line = lineNumber || 1
 
     // Read preferredIDE from the active project's .devfloat.json
     let preferredIDE = 'vscode' // Default fallback
@@ -349,21 +351,50 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
       console.log('Could not read preferredIDE from project settings, falling back to VS Code')
     }
 
-    const { command, args } = buildIDECommand(preferredIDE, absolutePath, lineNumber)
+    // VS Code and Cursor expose a URI protocol that routes to the *already-open* window.
+    // This avoids the Windows "select an app" OS picker and avoids opening a second instance.
+    if (preferredIDE === 'vscode' || preferredIDE === 'cursor') {
+      // URI format: vscode://file/C:/path/to/file:line   (forward slashes required)
+      const uriPath = absolutePath.replace(/\\/g, '/')
+      const protocol = preferredIDE === 'cursor' ? 'cursor' : 'vscode'
+      const uri = `${protocol}://file/${uriPath}:${line}`
+      console.log(`Opening via URI protocol: ${uri}`)
+      await shell.openExternal(uri)
+      return { success: true, path: absolutePath, line }
+    }
 
-    // Execute the command asynchronously (don't wait for editor to close)
-    // Don't use shell: true since we're using 'code' command (not code.cmd) which works in PATH
+    // JetBrains IDEs (PyCharm, IntelliJ IDEA, etc.) run a local REST server on port 63342.
+    // Hitting this endpoint navigates the *existing* open window — no new instance, no OS picker.
+    if (preferredIDE === 'intellij') {
+      // Path must use forward slashes in the query param
+      const encodedPath = encodeURIComponent(absolutePath.replace(/\\/g, '/'))
+      const apiUrl = `http://localhost:63342/api/file?file=${encodedPath}&line=${line}&column=0`
+      console.log(`Opening via JetBrains REST API: ${apiUrl}`)
+
+      const req = http.get(apiUrl, (res) => {
+        console.log(`JetBrains REST API responded: ${res.statusCode}`)
+      })
+      req.on('error', (err) => {
+        // REST API unavailable (IDE not open or port different) — fall back to CLI
+        console.warn(`JetBrains REST API failed (${err.message}), falling back to idea CLI`)
+        const { command, args } = buildIDECommand('intellij', absolutePath, lineNumber)
+        execFile(command, args, { detached: true, stdio: 'ignore' } as any, (cliErr) => {
+          if (cliErr) console.error('idea CLI also failed:', cliErr.message)
+        })
+      })
+      req.setTimeout(3000, () => req.destroy()) // Don't hang if IDE isn't running
+      return { success: true, path: absolutePath, line }
+    }
+
+    // For remaining IDEs (Sublime, Neovim, custom) fall back to execFile
+    const { command, args } = buildIDECommand(preferredIDE, absolutePath, lineNumber)
     execFile(
       command,
       args,
-      {
-        detached: true,
-        stdio: 'ignore' // Prevent stdout/stderr from blocking
-      } as any,
+      { detached: true, stdio: 'ignore' } as any,
       (error) => {
         if (error) {
           console.error(`Error opening file in ${preferredIDE}:`, error)
-          // Fallback: try to open with system default if IDE command fails
           shell.openPath(absolutePath).catch((err) => {
             console.error('Fallback shell.openPath failed:', err)
           })
@@ -371,7 +402,7 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
       }
     )
 
-    return { success: true, path: absolutePath, line: lineNumber }
+    return { success: true, path: absolutePath, line }
   } catch (error) {
     console.error('Error opening file:', error)
     throw new Error(`Failed to open file: ${error}`)
@@ -468,7 +499,7 @@ ipcMain.handle('window:close', async () => {
   }
 })
 
-// Helper: Process a single file — detect comments, add missing tasks, save, notify renderer
+// Helper: Process a single file — detect comments, add/update tasks, save, notify renderer
 async function processFileForTasks(filePath: string, projectRoot: string): Promise<boolean> {
   const comments = detectCommentsInFile(filePath)
   if (comments.length === 0) return false
@@ -486,30 +517,48 @@ async function processFileForTasks(filePath: string, projectRoot: string): Promi
     data = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'))
   }
 
-  let addedAny = false
-  for (const comment of comments) {
-    const key = `${filePath}:${comment.line}`
-    if (detectedComments.has(key)) continue
+  const relativeFilePath = path.relative(projectRoot, filePath)
+  let modified = false
 
-    const taskExists = (data.tasks || []).some(
-      (t: any) => t.linkedFile === path.relative(projectRoot, filePath) && t.linkedLine === comment.line
+  for (const comment of comments) {
+    const newKey = `${filePath}:${comment.line}`
+    if (detectedComments.has(newKey)) continue
+
+    // Primary match: same file + same title + same type (handles line shifts)
+    // This prevents a TODO that just moved lines from spawning a second task.
+    const existingByTitle = (data.tasks || []).find(
+      (t: any) =>
+        t.linkedFile === relativeFilePath &&
+        t.title === comment.title &&
+        t.type === comment.type
     )
 
-    if (!taskExists) {
-      const newTask = createTaskFromComment(filePath, projectRoot, comment.line, comment.title, comment.type)
-      data.tasks.push(newTask)
-      detectedComments.set(key, true)
-      addedAny = true
+    if (existingByTitle) {
+      if (existingByTitle.linkedLine !== comment.line) {
+        // Comment shifted to a new line — update in place, don't duplicate
+        existingByTitle.linkedLine = comment.line
+        existingByTitle.updatedAt = new Date().toISOString()
+        modified = true
+      }
+      detectedComments.set(newKey, true)
     } else {
-      // Mark as known so we don't reprocess on future saves
-      detectedComments.set(key, true)
+      // Truly new comment — create a task only if nothing already lives at this exact line
+      const exactLineMatch = (data.tasks || []).some(
+        (t: any) => t.linkedFile === relativeFilePath && t.linkedLine === comment.line
+      )
+      if (!exactLineMatch) {
+        const newTask = createTaskFromComment(filePath, projectRoot, comment.line, comment.title, comment.type)
+        data.tasks.push(newTask)
+        modified = true
+      }
+      detectedComments.set(newKey, true)
     }
   }
 
-  if (addedAny) {
+  if (modified) {
     fs.writeFileSync(tasksFile, JSON.stringify(data, null, 2), 'utf-8')
   }
-  return addedAny
+  return modified
 }
 
 // Start file watcher

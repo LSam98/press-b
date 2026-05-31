@@ -1,4 +1,4 @@
-export type TaskType = 'TODO' | 'NOTE' | 'CHEATSHEET' | 'PENDING' | 'REFACTOR' | 'BUG'
+export type TaskType = 'TODO' | 'PENDING' | 'REFACTOR' | 'BUG'
 export type TaskStatus = 'open' | 'done'
 export type Priority = 'high' | 'medium' | 'low'
 export type IDE = 'vscode' | 'intellij' | 'cursor' | 'sublime' | 'neovim' | 'custom'
