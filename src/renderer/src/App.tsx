@@ -4,9 +4,11 @@ import TaskList from './components/TaskList'
 import PinnedNotes from './components/PinnedNotes'
 import CheatsheetPanel from './components/CheatsheetPanel'
 import SettingsPanel from './components/SettingsPanel'
+import ReentryBrief from './components/ReentryBrief'
 import { useTasks } from './hooks/useTasks'
 import { usePinnedNotes } from './hooks/usePinnedNotes'
-import { IDE, DevFloatData } from './types'
+import { useAI } from './hooks/useAI'
+import { IDE, DevFloatData, AIPrivacyScope } from './types'
 
 type Tab = 'tasks' | 'notes' | 'cheatsheet' | 'settings'
 
@@ -18,9 +20,12 @@ function App(): React.JSX.Element {
   const [opacity, setOpacity] = useState(0.95)
   const [preferredIDE, setPreferredIDE] = useState<IDE>('vscode')
   const [watcherEnabled, setWatcherEnabled] = useState(false)
+  const [aiModel, setAiModel] = useState('claude-sonnet-4-6')
+  const [aiScope, setAiScope] = useState<AIPrivacyScope>('metadata+snippets')
 
-  const { tasks, addTask, updateTask, deleteTask, toggleStatus, saveOpacity, saveIDE, toggleWatcher } = useTasks(projectRoot)
+  const { tasks, addTask, updateTask, deleteTask, toggleStatus, saveOpacity, saveIDE, toggleWatcher, saveAIModel, saveAIScope } = useTasks(projectRoot)
   const { notes, addNote, updateNote, deleteNote } = usePinnedNotes(projectRoot)
+  const { hasKey, brief, generatedAt: briefGeneratedAt, isGenerating, error: aiError, saveKey, generateBrief } = useAI(projectRoot)
 
   // Load last project root on app startup
   useEffect(() => {
@@ -60,10 +65,14 @@ function App(): React.JSX.Element {
         const loadedIDE = data.settings?.preferredIDE || 'vscode'
         const windowPosition = data.settings?.windowPosition || { x: 1540, y: 100 }
         const loadedWatcherEnabled = data.settings?.watcherEnabled || false
+        const loadedAIModel = data.settings?.aiModel || 'claude-sonnet-4-6'
+        const loadedAIScope = data.settings?.aiPrivacyScope || 'metadata+snippets'
 
         setOpacity(loadedOpacity)
         setPreferredIDE(loadedIDE)
         setWatcherEnabled(loadedWatcherEnabled)
+        setAiModel(loadedAIModel)
+        setAiScope(loadedAIScope)
 
         // Restore opacity and window position
         await window.devfloat.window.setOpacity(loadedOpacity)
@@ -229,13 +238,26 @@ function App(): React.JSX.Element {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'tasks' && (
-          <TaskList
-            tasks={tasks}
-            onAddTask={addTask}
-            onUpdateTask={updateTask}
-            onDeleteTask={deleteTask}
-            onToggleStatus={toggleStatus}
-          />
+          <div className="flex flex-col h-full overflow-hidden">
+            <ReentryBrief
+              hasKey={hasKey}
+              brief={brief}
+              generatedAt={briefGeneratedAt}
+              isGenerating={isGenerating}
+              error={aiError}
+              onGenerate={generateBrief}
+              onGoToSettings={() => setActiveTab('settings')}
+            />
+            <div className="flex-1 overflow-hidden">
+              <TaskList
+                tasks={tasks}
+                onAddTask={addTask}
+                onUpdateTask={updateTask}
+                onDeleteTask={deleteTask}
+                onToggleStatus={toggleStatus}
+              />
+            </div>
+          </div>
         )}
         {activeTab === 'notes' && (
           <PinnedNotes notes={notes} onAddNote={addNote} onUpdateNote={updateNote} onDeleteNote={deleteNote} />
@@ -253,6 +275,18 @@ function App(): React.JSX.Element {
             onWatcherToggle={async (enabled: boolean) => {
               await toggleWatcher(enabled)
               setWatcherEnabled(enabled) // Keep App state in sync so toggle persists across tab switches
+            }}
+            aiHasKey={hasKey}
+            onSaveKey={saveKey}
+            initialAIModel={aiModel}
+            onAIModelChange={async (model: string) => {
+              setAiModel(model)
+              await saveAIModel(model)
+            }}
+            initialAIScope={aiScope}
+            onAIScopeChange={async (scope: AIPrivacyScope) => {
+              setAiScope(scope)
+              await saveAIScope(scope)
             }}
           />
         )}

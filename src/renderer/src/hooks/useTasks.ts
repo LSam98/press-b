@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, DevFloatData, IDE } from '../types'
+import { Task, DevFloatData, IDE, AIPrivacyScope } from '../types'
 
 export function useTasks(projectRoot: string | null) {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -143,6 +143,40 @@ export function useTasks(projectRoot: string | null) {
     [projectRoot]
   )
 
+  // Save AI model preference to settings
+  const saveAIModel = useCallback(
+    async (model: string) => {
+      if (!projectRoot) return
+      try {
+        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+        await window.devfloat.storage.save(projectRoot, {
+          ...data,
+          settings: { ...data.settings, aiModel: model }
+        })
+      } catch (error) {
+        console.error('Error saving AI model:', error)
+      }
+    },
+    [projectRoot]
+  )
+
+  // Save AI privacy scope to settings
+  const saveAIScope = useCallback(
+    async (scope: AIPrivacyScope) => {
+      if (!projectRoot) return
+      try {
+        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+        await window.devfloat.storage.save(projectRoot, {
+          ...data,
+          settings: { ...data.settings, aiPrivacyScope: scope }
+        })
+      } catch (error) {
+        console.error('Error saving AI privacy scope:', error)
+      }
+    },
+    [projectRoot]
+  )
+
   // Toggle file watcher
   const toggleWatcher = useCallback(
     async (enabled: boolean) => {
@@ -180,6 +214,8 @@ export function useTasks(projectRoot: string | null) {
     toggleStatus,
     saveOpacity,
     saveIDE,
-    toggleWatcher
+    toggleWatcher,
+    saveAIModel,
+    saveAIScope
   }
 }

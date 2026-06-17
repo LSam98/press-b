@@ -1,7 +1,8 @@
 export type TaskType = 'TODO' | 'PENDING' | 'REFACTOR' | 'BUG'
 export type TaskStatus = 'open' | 'done'
 export type Priority = 'high' | 'medium' | 'low'
-export type IDE = 'vscode' | 'intellij' | 'cursor' | 'sublime' | 'neovim' | 'custom'
+export type IDE = 'vscode' | 'intellij' | 'pycharm' | 'cursor' | 'sublime' | 'neovim' | 'custom'
+export type AIPrivacyScope = 'metadata' | 'metadata+snippets' | 'broad'
 
 export interface Task {
   id: string
@@ -37,5 +38,7 @@ export interface DevFloatData {
     customIDECommand?: string
     watcherEnabled?: boolean
     windowPosition?: { x: number; y: number }
+    aiModel?: string
+    aiPrivacyScope?: AIPrivacyScope
   }
 }

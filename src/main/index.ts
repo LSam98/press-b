@@ -7,6 +7,11 @@ import * as path from 'path'
 import * as http from 'http'
 import { execFile } from 'child_process'
 import { watch } from 'chokidar'
+import * as keyStore from './ai/keyStore'
+import * as briefStore from './ai/briefStore'
+import { buildProjectDigest } from './ai/context'
+import { AnthropicProvider, describeAIError } from './ai/anthropic'
+import { PrivacyScope } from './ai/types'
 
 let mainWindow: BrowserWindow | null = null
 let fileWatcher: ReturnType<typeof watch> | null = null
@@ -288,6 +293,84 @@ ipcMain.handle('dialog:selectFile', async () => {
 })
 
 // Helper: Build IDE-specific command to open file at line number
+// Bounded recursive search for an executable under a base dir (JetBrains installs
+// nest the binary a few levels deep under a version folder).
+function findExeUnder(baseDir: string, exeName: string, depth = 5): string | null {
+  if (depth < 0 || !fs.existsSync(baseDir)) return null
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(baseDir, { withFileTypes: true })
+  } catch {
+    return null
+  }
+  for (const e of entries) {
+    if (e.isFile() && e.name.toLowerCase() === exeName.toLowerCase()) {
+      return path.join(baseDir, e.name)
+    }
+  }
+  for (const e of entries) {
+    if (e.isDirectory()) {
+      const found = findExeUnder(path.join(baseDir, e.name), exeName, depth - 1)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// Cache the resolved launcher path so we don't rescan the filesystem on every click.
+const jetbrainsLauncherCache: Record<string, string | null> = {}
+
+// Locate the JetBrains launcher exe (Toolbox or standalone) without relying on PATH.
+// Returns null on non-Windows (there we rely on the `idea`/`pycharm` shell scripts in PATH).
+function findJetBrainsLauncher(ide: 'intellij' | 'pycharm'): string | null {
+  if (ide in jetbrainsLauncherCache) return jetbrainsLauncherCache[ide]
+  if (process.platform !== 'win32') {
+    jetbrainsLauncherCache[ide] = null
+    return null
+  }
+
+  const exe = ide === 'pycharm' ? 'pycharm64.exe' : 'idea64.exe'
+  const localAppData = process.env.LOCALAPPDATA || ''
+  const programFiles = process.env.PROGRAMFILES || 'C:\\Program Files'
+  const programFilesX86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'
+
+  // JetBrains-only directories — safe to deep-scan (small, no unrelated apps).
+  const baseDirs = [
+    path.join(localAppData, 'JetBrains', 'Toolbox', 'apps'), // Toolbox installs
+    path.join(programFiles, 'JetBrains'), // standalone
+    path.join(programFilesX86, 'JetBrains')
+  ]
+
+  let found: string | null = null
+  for (const base of baseDirs) {
+    found = findExeUnder(base, exe)
+    if (found) break
+  }
+  if (found) console.log(`Resolved JetBrains launcher: ${found}`)
+  jetbrainsLauncherCache[ide] = found
+  return found
+}
+
+// Hit the JetBrains built-in server. Resolves true only on a 2xx (file navigated).
+function tryJetBrainsRest(relPath: string, line: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const encodedPath = encodeURIComponent(relPath.replace(/\\/g, '/'))
+    const apiUrl = `http://localhost:63342/api/file?file=${encodedPath}&line=${line}&column=0`
+    console.log(`Opening via JetBrains REST API: ${apiUrl}`)
+    const req = http.get(apiUrl, (res) => {
+      const status = res.statusCode || 0
+      console.log(`JetBrains REST API responded: ${status}`)
+      res.resume()
+      resolve(status >= 200 && status < 300)
+    })
+    req.on('error', (err) => {
+      console.warn(`JetBrains REST error: ${err.message}`)
+      resolve(false)
+    })
+    req.setTimeout(2000, () => req.destroy(new Error('timeout')))
+  })
+}
+
 function buildIDECommand(ideType: string, filePath: string, lineNumber?: number): { command: string; args: string[] } {
   const isWindows = process.platform === 'win32'
 
@@ -307,8 +390,13 @@ function buildIDECommand(ideType: string, filePath: string, lineNumber?: number)
       }
     case 'intellij':
       return {
-        command: 'idea', // Use plain command name (works in PATH)
-        args: [`${filePath}:${line}`]
+        command: 'idea', // JetBrains launcher (must be in PATH)
+        args: ['--line', String(line), filePath] // JetBrains uses --line N <file>, not file:line
+      }
+    case 'pycharm':
+      return {
+        command: 'pycharm', // JetBrains launcher (must be in PATH)
+        args: ['--line', String(line), filePath]
       }
     case 'sublime':
       return {
@@ -363,27 +451,48 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
       return { success: true, path: absolutePath, line }
     }
 
-    // JetBrains IDEs (PyCharm, IntelliJ IDEA, etc.) run a local REST server on port 63342.
-    // Hitting this endpoint navigates the *existing* open window — no new instance, no OS picker.
-    if (preferredIDE === 'intellij') {
-      // Path must use forward slashes in the query param
-      const encodedPath = encodeURIComponent(absolutePath.replace(/\\/g, '/'))
-      const apiUrl = `http://localhost:63342/api/file?file=${encodedPath}&line=${line}&column=0`
-      console.log(`Opening via JetBrains REST API: ${apiUrl}`)
+    // JetBrains IDEs (PyCharm, IntelliJ IDEA, etc.).
+    if (preferredIDE === 'intellij' || preferredIDE === 'pycharm') {
+      // 1) Try the built-in REST server (port 63342) — instant, no process spawn,
+      //    navigates the already-open window. Path must be RELATIVE to the project
+      //    root (absolute paths 404 — JetBrains PY-57115).
+      const relPath =
+        currentProjectRoot && absolutePath.startsWith(currentProjectRoot)
+          ? path.relative(currentProjectRoot, absolutePath)
+          : absolutePath
+      const navigated = await tryJetBrainsRest(relPath, line)
+      if (navigated) {
+        return { success: true, path: absolutePath, line }
+      }
 
-      const req = http.get(apiUrl, (res) => {
-        console.log(`JetBrains REST API responded: ${res.statusCode}`)
-      })
-      req.on('error', (err) => {
-        // REST API unavailable (IDE not open or port different) — fall back to CLI
-        console.warn(`JetBrains REST API failed (${err.message}), falling back to idea CLI`)
-        const { command, args } = buildIDECommand('intellij', absolutePath, lineNumber)
-        execFile(command, args, { detached: true, stdio: 'ignore' } as any, (cliErr) => {
-          if (cliErr) console.error('idea CLI also failed:', cliErr.message)
-        })
-      })
-      req.setTimeout(3000, () => req.destroy()) // Don't hang if IDE isn't running
-      return { success: true, path: absolutePath, line }
+      // 2) REST didn't navigate. Use the launcher EXE by full path (Toolbox installs
+      //    aren't on PATH, so a bare `pycharm`/`idea` spawn ENOENTs). The launcher
+      //    routes to the running instance and jumps to the line — no "Open project"
+      //    prompt, because the file already lives in the open project.
+      const launcher = findJetBrainsLauncher(preferredIDE)
+      if (launcher) {
+        execFile(
+          launcher,
+          ['--line', String(line), absolutePath],
+          { detached: true, stdio: 'ignore' } as any,
+          (err) => {
+            if (err) console.error(`JetBrains launcher failed: ${err.message}`)
+          }
+        )
+        return { success: true, path: absolutePath, line }
+      }
+
+      // 3) Neither worked. Surface a clear, actionable error — deliberately NOT
+      //    shell.openPath(), which opens the file via OS association and triggers
+      //    the unwanted "Open project" dialog without jumping to the line.
+      console.error('JetBrains: REST returned non-2xx and no launcher exe was found.')
+      return {
+        success: false,
+        path: absolutePath,
+        line,
+        error:
+          'Could not reach PyCharm. Make sure the project is open in PyCharm, or set a custom launcher path in Settings.'
+      }
     }
 
     // For remaining IDEs (Sublime, Neovim, custom) fall back to execFile
@@ -646,4 +755,77 @@ ipcMain.handle('watcher:stop', async () => {
     console.error('Error stopping watcher:', error)
     throw new Error(`Failed to stop watcher: ${error}`)
   }
+})
+
+// ============================================================================
+// IPC HANDLERS FOR AI (Re-entry Brief)
+// ============================================================================
+
+// Whether an API key is stored (drives the Settings "key saved ✓" indicator)
+ipcMain.handle('ai:hasKey', async () => {
+  return keyStore.hasKey()
+})
+
+// Save (or clear, if empty) the encrypted API key
+ipcMain.handle('ai:setKey', async (_event, apiKey: string) => {
+  try {
+    keyStore.setKey(apiKey)
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving API key:', error)
+    throw new Error((error as Error).message)
+  }
+})
+
+// Generate a re-entry brief for the active project
+ipcMain.handle('ai:generateBrief', async (_event, projectRoot: string) => {
+  const apiKey = keyStore.getKey()
+  if (!apiKey) {
+    return { success: false, error: 'No API key set. Add your Anthropic key in Settings.' }
+  }
+  if (!projectRoot) {
+    return { success: false, error: 'No project selected.' }
+  }
+
+  try {
+    // Read model + privacy scope from the project's settings (with safe defaults)
+    let model = 'claude-sonnet-4-6'
+    let scope: PrivacyScope = 'metadata+snippets'
+    try {
+      const tasksFile = getTasksFilePath(projectRoot)
+      if (fs.existsSync(tasksFile)) {
+        const data = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'))
+        model = data.settings?.aiModel || model
+        scope = data.settings?.aiPrivacyScope || scope
+      }
+    } catch (e) {
+      console.warn('Could not read AI settings, using defaults:', e)
+    }
+
+    const digest = buildProjectDigest(projectRoot, scope)
+    console.log(
+      `[ai] Generating brief — model=${model}, scope=${scope}, tasks=${digest.taskCount}, notes=${digest.noteCount}, snippets=${digest.snippetCount}`
+    )
+
+    const provider = new AnthropicProvider(apiKey)
+    const brief = await provider.generateBrief(digest, {
+      model,
+      now: new Date().toLocaleString()
+    })
+
+    // Persist so it survives restarts (machine-local, not in the repo)
+    const generatedAt = new Date().toISOString()
+    briefStore.setBrief(projectRoot, { text: brief, generatedAt })
+
+    return { success: true, brief, generatedAt }
+  } catch (error) {
+    console.error('Error generating brief:', error)
+    return { success: false, error: describeAIError(error) }
+  }
+})
+
+// Load the last persisted brief for a project (shown on launch without an API call)
+ipcMain.handle('ai:getBrief', async (_event, projectRoot: string) => {
+  if (!projectRoot) return null
+  return briefStore.getBrief(projectRoot)
 })

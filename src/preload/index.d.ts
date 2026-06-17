@@ -25,6 +25,14 @@ export interface DevFloatAPI {
     start: (projectRoot: string) => Promise<{ success: boolean; message: string }>
     stop: () => Promise<{ success: boolean; message: string }>
   }
+  ai: {
+    hasKey: () => Promise<boolean>
+    setKey: (apiKey: string) => Promise<{ success: boolean }>
+    generateBrief: (
+      projectRoot: string
+    ) => Promise<{ success: boolean; brief?: string; generatedAt?: string; error?: string }>
+    getBrief: (projectRoot: string) => Promise<{ text: string; generatedAt: string } | null>
+  }
   onTasksUpdated: (callback: () => void) => () => void
 }
 

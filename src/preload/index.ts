@@ -30,6 +30,12 @@ const api = {
     start: (projectRoot: string) => ipcRenderer.invoke('watcher:start', projectRoot),
     stop: () => ipcRenderer.invoke('watcher:stop')
   },
+  ai: {
+    hasKey: () => ipcRenderer.invoke('ai:hasKey'),
+    setKey: (apiKey: string) => ipcRenderer.invoke('ai:setKey', apiKey),
+    generateBrief: (projectRoot: string) => ipcRenderer.invoke('ai:generateBrief', projectRoot),
+    getBrief: (projectRoot: string) => ipcRenderer.invoke('ai:getBrief', projectRoot)
+  },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)
     // Return an unsubscribe function so the renderer can clean up on unmount

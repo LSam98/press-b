@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IDE } from '../types'
+import { IDE, AIPrivacyScope } from '../types'
 
 interface SettingsPanelProps {
   projectRoot: string
@@ -10,6 +10,13 @@ interface SettingsPanelProps {
   initialOpacity?: number
   initialIDE?: IDE
   initialWatcherEnabled?: boolean
+  // AI
+  aiHasKey?: boolean
+  onSaveKey?: (apiKey: string) => Promise<void>
+  initialAIModel?: string
+  onAIModelChange?: (model: string) => Promise<void>
+  initialAIScope?: AIPrivacyScope
+  onAIScopeChange?: (scope: AIPrivacyScope) => Promise<void>
 }
 
 export default function SettingsPanel({
@@ -20,11 +27,21 @@ export default function SettingsPanel({
   onWatcherToggle,
   initialOpacity = 0.95,
   initialIDE = 'vscode',
-  initialWatcherEnabled = false
+  initialWatcherEnabled = false,
+  aiHasKey = false,
+  onSaveKey,
+  initialAIModel = 'claude-sonnet-4-6',
+  onAIModelChange,
+  initialAIScope = 'metadata+snippets',
+  onAIScopeChange
 }: SettingsPanelProps): React.JSX.Element {
   const [opacity, setOpacity] = useState(initialOpacity)
   const [preferredIDE, setPreferredIDE] = useState<IDE>(initialIDE)
   const [watcherEnabled, setWatcherEnabled] = useState(initialWatcherEnabled)
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [keySaved, setKeySaved] = useState(false)
+  const [aiModel, setAiModel] = useState(initialAIModel)
+  const [aiScope, setAiScope] = useState<AIPrivacyScope>(initialAIScope)
 
   useEffect(() => {
     // Load initial opacity from props
@@ -72,6 +89,18 @@ export default function SettingsPanel({
         console.error('Error toggling watcher:', error)
         setWatcherEnabled(!enabled)
       }
+    }
+  }
+
+  const handleSaveKey = async () => {
+    if (!onSaveKey) return
+    try {
+      await onSaveKey(apiKeyInput.trim())
+      setApiKeyInput('')
+      setKeySaved(true)
+      setTimeout(() => setKeySaved(false), 2500)
+    } catch (error) {
+      console.error('Error saving API key:', error)
     }
   }
 
@@ -128,6 +157,7 @@ export default function SettingsPanel({
           <option value="vscode">VS Code</option>
           <option value="cursor">Cursor</option>
           <option value="intellij">IntelliJ IDEA</option>
+          <option value="pycharm">PyCharm</option>
           <option value="sublime">Sublime Text</option>
           <option value="neovim">Neovim</option>
           <option value="custom">Custom Command</option>
@@ -152,6 +182,70 @@ export default function SettingsPanel({
         </label>
         <p className="text-xs text-neutral-400 mt-2">
           Automatically create tasks from code comments. Disabled until a project is selected.
+        </p>
+      </div>
+
+      {/* AI Assistant Section */}
+      <div>
+        <h3 className="text-sm font-semibold text-neutral-200 mb-2">
+          AI Assistant {aiHasKey && <span className="text-xs text-green-400 font-normal">key saved ✓</span>}
+        </h3>
+
+        {/* API Key */}
+        <div className="flex gap-2 mb-2">
+          <input
+            type="password"
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            placeholder={aiHasKey ? 'Replace stored key…' : 'Paste Anthropic API key (sk-ant-…)'}
+            className="flex-1 px-2 py-1 bg-neutral-700 text-neutral-100 text-xs rounded border border-neutral-600 focus:border-blue-500 focus:outline-none"
+          />
+          <button
+            onClick={handleSaveKey}
+            disabled={!apiKeyInput.trim()}
+            className="draggable-no-drag px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition cursor-pointer disabled:opacity-40"
+          >
+            {keySaved ? 'Saved' : 'Save'}
+          </button>
+        </div>
+        <p className="text-xs text-neutral-500 mb-3">
+          Stored encrypted on this machine — never written to your project files. Used for the
+          Re-entry Brief.
+        </p>
+
+        {/* Model */}
+        <label className="text-xs text-neutral-400 block mb-1">Model</label>
+        <select
+          value={aiModel}
+          onChange={async (e) => {
+            setAiModel(e.target.value)
+            if (onAIModelChange) await onAIModelChange(e.target.value)
+          }}
+          className="w-full px-2 py-2 bg-neutral-700 text-neutral-100 text-sm rounded border border-neutral-600 focus:border-blue-500 focus:outline-none mb-3"
+        >
+          <option value="claude-haiku-4-5">Claude Haiku 4.5 (fast, cheap)</option>
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (balanced)</option>
+          <option value="claude-opus-4-8">Claude Opus 4.8 (most capable)</option>
+        </select>
+
+        {/* Privacy scope */}
+        <label className="text-xs text-neutral-400 block mb-1">Data shared with the API</label>
+        <select
+          value={aiScope}
+          onChange={async (e) => {
+            const scope = e.target.value as AIPrivacyScope
+            setAiScope(scope)
+            if (onAIScopeChange) await onAIScopeChange(scope)
+          }}
+          className="w-full px-2 py-2 bg-neutral-700 text-neutral-100 text-sm rounded border border-neutral-600 focus:border-blue-500 focus:outline-none"
+        >
+          <option value="metadata">Metadata only (no code)</option>
+          <option value="metadata+snippets">Metadata + linked code snippets</option>
+          <option value="broad">Broad (metadata + snippets)</option>
+        </select>
+        <p className="text-xs text-neutral-500 mt-2">
+          Controls what leaves your machine. Default sends task/note metadata plus a few lines
+          around each linked code location.
         </p>
       </div>
 
