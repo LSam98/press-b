@@ -6,7 +6,15 @@
 // the model is configurable per-project via settings.
 
 import Anthropic from '@anthropic-ai/sdk'
-import { AIProvider, GenerateBriefOptions, ProjectDigest } from './types'
+import {
+  AIProvider,
+  GenerateBriefOptions,
+  GenerateSuggestionsOptions,
+  ProjectDigest,
+  Suggestion,
+  SuggestionLens,
+  SuggestionVolume
+} from './types'
 
 const SYSTEM_PROMPT = `You are DevFloat's session-resume assistant. The developer is returning to a coding project and wants to quickly re-enter their working context.
 
@@ -15,6 +23,49 @@ Given a digest of the project's tasks, notes, and recent activity, write a conci
 - Then a single concrete "Suggested next step:" line.
 
 Be specific — reference actual task titles, files, and notes from the digest. Do not invent work that isn't in the digest. Write in a calm, direct tone, second person ("You were…"). No preamble, no headers, just the brief.`
+
+// How many suggestions each volume level may return. Scarcity is deliberate —
+// the prompt also licenses returning none.
+const VOLUME_CAP: Record<SuggestionVolume, number> = {
+  minimal: 1,
+  balanced: 2,
+  proactive: 3
+}
+
+const LENS_DESCRIPTIONS: Record<SuggestionLens, string> = {
+  'next-step': 'the single most logical next action to make progress, given recent activity and open tasks',
+  'code-quality': 'a concrete, justified refactor or cleanup that would meaningfully improve the code',
+  'missing-tests': 'a specific gap in test coverage worth filling',
+  architecture: 'a higher-level structural improvement (module boundaries, separation of concerns)'
+}
+
+const SUGGESTIONS_SYSTEM = `You are DevFloat's suggestion assistant — a restrained senior engineer who proposes high-signal next tasks for a developer's project.
+
+CORE RULES — follow these exactly:
+- Quality over quantity. Returning an EMPTY list is a correct, valued answer when you have nothing sharp to say. Never pad to fill the cap.
+- Only propose items that are NON-OBVIOUS and genuinely useful — things the developer would thank you for noticing, not busywork or generic advice.
+- Never restate work that already exists as a task in the digest. Never repeat dismissed items.
+- Each suggestion is a concrete, actionable task with a short, specific title.
+- For each, give a one-sentence "reasoning" that references something real in the digest (a task, note, file, or pattern), and an honest confidence level.
+
+You will be told which LENSES to focus on and the MAXIMUM number of suggestions. Respect both.
+
+Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
+{"suggestions":[{"lens":"<one of the requested lenses>","taskType":"TODO|PENDING|REFACTOR|BUG","title":"...","body":"...","priority":"high|medium|low","reasoning":"...","confidence":"high|medium|low"}]}
+If you have nothing worth suggesting, return {"suggestions":[]}.`
+
+// Tolerant extraction of the JSON object from the model's text response.
+function parseSuggestions(text: string): Suggestion[] {
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start === -1 || end === -1) return []
+  try {
+    const parsed = JSON.parse(text.slice(start, end + 1))
+    return Array.isArray(parsed.suggestions) ? parsed.suggestions : []
+  } catch {
+    return []
+  }
+}
 
 export class AnthropicProvider implements AIProvider {
   private client: Anthropic
@@ -51,6 +102,46 @@ export class AnthropicProvider implements AIProvider {
       .map((block) => block.text)
       .join('')
       .trim()
+  }
+
+  async generateSuggestions(
+    digest: ProjectDigest,
+    opts: GenerateSuggestionsOptions
+  ): Promise<Suggestion[]> {
+    // Fall back to next-step if the user somehow disabled every lens.
+    const lenses = opts.lenses.length ? opts.lenses : (['next-step'] as SuggestionLens[])
+    const cap = VOLUME_CAP[opts.volume]
+
+    const lensLines = lenses.map((l) => `- ${l}: ${LENS_DESCRIPTIONS[l]}`).join('\n')
+    const exclusions = opts.dismissed.length
+      ? `\n\nDo NOT re-suggest these previously dismissed items:\n${opts.dismissed.map((d) => `- ${d}`).join('\n')}`
+      : ''
+
+    const instructions = `Focus ONLY on these lenses:\n${lensLines}\n\nReturn AT MOST ${cap} suggestion(s) — fewer (or zero) is better than padding.${exclusions}`
+
+    const response = await this.client.messages.create({
+      model: opts.model,
+      max_tokens: 1500,
+      system: [
+        { type: 'text', text: SUGGESTIONS_SYSTEM },
+        {
+          type: 'text',
+          text: `PROJECT DIGEST:\n${digest.text}`,
+          cache_control: { type: 'ephemeral' }
+        }
+      ],
+      messages: [{ role: 'user', content: instructions }]
+    })
+
+    const text = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+
+    // Trust-but-verify: enforce the cap and the requested lenses client-side too.
+    return parseSuggestions(text)
+      .filter((s) => lenses.includes(s.lens))
+      .slice(0, cap)
   }
 }
 

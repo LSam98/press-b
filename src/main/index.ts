@@ -9,9 +9,10 @@ import { execFile } from 'child_process'
 import { watch } from 'chokidar'
 import * as keyStore from './ai/keyStore'
 import * as briefStore from './ai/briefStore'
+import * as suggestionStore from './ai/suggestionStore'
 import { buildProjectDigest } from './ai/context'
 import { AnthropicProvider, describeAIError } from './ai/anthropic'
-import { PrivacyScope } from './ai/types'
+import { PrivacyScope, SuggestionVolume, SuggestionLens } from './ai/types'
 
 let mainWindow: BrowserWindow | null = null
 let fileWatcher: ReturnType<typeof watch> | null = null
@@ -828,4 +829,62 @@ ipcMain.handle('ai:generateBrief', async (_event, projectRoot: string) => {
 ipcMain.handle('ai:getBrief', async (_event, projectRoot: string) => {
   if (!projectRoot) return null
   return briefStore.getBrief(projectRoot)
+})
+
+// Generate on-demand AI suggestions (proposed tasks) for the active project
+ipcMain.handle('ai:generateSuggestions', async (_event, projectRoot: string) => {
+  const apiKey = keyStore.getKey()
+  if (!apiKey) {
+    return { success: false, error: 'No API key set. Add your Anthropic key in Settings.' }
+  }
+  if (!projectRoot) {
+    return { success: false, error: 'No project selected.' }
+  }
+
+  try {
+    // Read model, privacy scope, volume, and lenses from project settings
+    let model = 'claude-sonnet-4-6'
+    let scope: PrivacyScope = 'metadata+snippets'
+    let volume: SuggestionVolume = 'balanced'
+    let lenses: SuggestionLens[] = ['next-step']
+    try {
+      const tasksFile = getTasksFilePath(projectRoot)
+      if (fs.existsSync(tasksFile)) {
+        const data = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'))
+        model = data.settings?.aiModel || model
+        scope = data.settings?.aiPrivacyScope || scope
+        volume = data.settings?.aiSuggestionVolume || volume
+        if (Array.isArray(data.settings?.aiSuggestionLenses) && data.settings.aiSuggestionLenses.length) {
+          lenses = data.settings.aiSuggestionLenses
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read AI suggestion settings, using defaults:', e)
+    }
+
+    const digest = buildProjectDigest(projectRoot, scope)
+    const dismissed = suggestionStore.getDismissed(projectRoot)
+    console.log(
+      `[ai] Generating suggestions — model=${model}, volume=${volume}, lenses=[${lenses.join(', ')}], dismissed=${dismissed.length}`
+    )
+
+    const provider = new AnthropicProvider(apiKey)
+    const suggestions = await provider.generateSuggestions(digest, {
+      model,
+      volume,
+      lenses,
+      dismissed
+    })
+
+    return { success: true, suggestions }
+  } catch (error) {
+    console.error('Error generating suggestions:', error)
+    return { success: false, error: describeAIError(error) }
+  }
+})
+
+// Remember a dismissed suggestion so it isn't proposed again
+ipcMain.handle('ai:dismissSuggestion', async (_event, projectRoot: string, title: string) => {
+  if (projectRoot && title) suggestionStore.addDismissed(projectRoot, title)
+  return { success: true }
 })

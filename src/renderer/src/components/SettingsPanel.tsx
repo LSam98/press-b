@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IDE, AIPrivacyScope } from '../types'
+import { IDE, AIPrivacyScope, SuggestionVolume, SuggestionLens } from '../types'
 
 interface SettingsPanelProps {
   projectRoot: string
@@ -17,7 +17,18 @@ interface SettingsPanelProps {
   onAIModelChange?: (model: string) => Promise<void>
   initialAIScope?: AIPrivacyScope
   onAIScopeChange?: (scope: AIPrivacyScope) => Promise<void>
+  initialAIVolume?: SuggestionVolume
+  onAIVolumeChange?: (volume: SuggestionVolume) => Promise<void>
+  initialAILenses?: SuggestionLens[]
+  onAILensesChange?: (lenses: SuggestionLens[]) => Promise<void>
 }
+
+const ALL_LENSES: { value: SuggestionLens; label: string }[] = [
+  { value: 'next-step', label: 'Next-step planning' },
+  { value: 'code-quality', label: 'Code quality / refactors' },
+  { value: 'missing-tests', label: 'Missing tests' },
+  { value: 'architecture', label: 'Architecture' }
+]
 
 export default function SettingsPanel({
   projectRoot,
@@ -33,7 +44,11 @@ export default function SettingsPanel({
   initialAIModel = 'claude-sonnet-4-6',
   onAIModelChange,
   initialAIScope = 'metadata+snippets',
-  onAIScopeChange
+  onAIScopeChange,
+  initialAIVolume = 'balanced',
+  onAIVolumeChange,
+  initialAILenses = ['next-step'],
+  onAILensesChange
 }: SettingsPanelProps): React.JSX.Element {
   const [opacity, setOpacity] = useState(initialOpacity)
   const [preferredIDE, setPreferredIDE] = useState<IDE>(initialIDE)
@@ -42,6 +57,16 @@ export default function SettingsPanel({
   const [keySaved, setKeySaved] = useState(false)
   const [aiModel, setAiModel] = useState(initialAIModel)
   const [aiScope, setAiScope] = useState<AIPrivacyScope>(initialAIScope)
+  const [aiVolume, setAiVolume] = useState<SuggestionVolume>(initialAIVolume)
+  const [aiLenses, setAiLenses] = useState<SuggestionLens[]>(initialAILenses)
+
+  const toggleLens = async (lens: SuggestionLens): Promise<void> => {
+    const next = aiLenses.includes(lens)
+      ? aiLenses.filter((l) => l !== lens)
+      : [...aiLenses, lens]
+    setAiLenses(next)
+    if (onAILensesChange) await onAILensesChange(next)
+  }
 
   useEffect(() => {
     // Load initial opacity from props
@@ -247,6 +272,44 @@ export default function SettingsPanel({
           Controls what leaves your machine. Default sends task/note metadata plus a few lines
           around each linked code location.
         </p>
+
+        {/* Suggestion volume */}
+        <label className="text-xs text-neutral-400 block mb-1 mt-4">
+          Suggestion volume <span className="text-amber-500/80">(AI Companion)</span>
+        </label>
+        <select
+          value={aiVolume}
+          onChange={async (e) => {
+            const v = e.target.value as SuggestionVolume
+            setAiVolume(v)
+            if (onAIVolumeChange) await onAIVolumeChange(v)
+          }}
+          className="w-full px-2 py-2 bg-neutral-700 text-neutral-100 text-sm rounded border border-neutral-600 focus:border-amber-500 focus:outline-none mb-3"
+        >
+          <option value="minimal">Minimal — at most 1, only if it really matters</option>
+          <option value="balanced">Balanced — up to 2</option>
+          <option value="proactive">Proactive — up to 3</option>
+        </select>
+
+        {/* Suggestion lenses */}
+        <label className="text-xs text-neutral-400 block mb-1">Suggestion focus (lenses)</label>
+        <div className="flex flex-col gap-1.5">
+          {ALL_LENSES.map((lens) => (
+            <label key={lens.value} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={aiLenses.includes(lens.value)}
+                onChange={() => toggleLens(lens.value)}
+                className="w-3.5 h-3.5 rounded cursor-pointer accent-amber-500"
+              />
+              <span className="text-xs text-neutral-300">{lens.label}</span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-500 mt-2">
+          Volume controls how many; lenses control what kind. Suggestions only run when you click
+          in the AI Companion tab.
+        </p>
       </div>
 
       {/* Keyboard Shortcut Section */}
@@ -263,7 +326,7 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">About</h3>
         <div className="text-xs text-neutral-400 space-y-1">
           <p>
-            <span className="font-semibold">DevFloat</span> v1.0.0
+            <span className="font-semibold">DevFloat</span> v1.1.0
           </p>
           <p>A floating task and context layer for developers.</p>
         </div>

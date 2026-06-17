@@ -2,18 +2,26 @@ import { useEffect, useState } from 'react'
 import TitleBar from './components/TitleBar'
 import TaskList from './components/TaskList'
 import PinnedNotes from './components/PinnedNotes'
-import CheatsheetPanel from './components/CheatsheetPanel'
 import SettingsPanel from './components/SettingsPanel'
-import ReentryBrief from './components/ReentryBrief'
+import AICompanionPanel from './components/AICompanionPanel'
 import { useTasks } from './hooks/useTasks'
 import { usePinnedNotes } from './hooks/usePinnedNotes'
 import { useAI } from './hooks/useAI'
-import { IDE, DevFloatData, AIPrivacyScope } from './types'
+import {
+  IDE,
+  DevFloatData,
+  AIPrivacyScope,
+  SuggestionVolume,
+  SuggestionLens,
+  Suggestion,
+  Task
+} from './types'
 
-type Tab = 'tasks' | 'notes' | 'cheatsheet' | 'settings'
+type Tab = 'tasks' | 'notes' | 'companion' | 'settings'
 
 function App(): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<Tab>('tasks')
+  // AI Companion is the default landing tab — re-entering the app greets you with your brief
+  const [activeTab, setActiveTab] = useState<Tab>('companion')
   const [projectRoot, setProjectRoot] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -22,10 +30,57 @@ function App(): React.JSX.Element {
   const [watcherEnabled, setWatcherEnabled] = useState(false)
   const [aiModel, setAiModel] = useState('claude-sonnet-4-6')
   const [aiScope, setAiScope] = useState<AIPrivacyScope>('metadata+snippets')
+  const [aiVolume, setAiVolume] = useState<SuggestionVolume>('balanced')
+  const [aiLenses, setAiLenses] = useState<SuggestionLens[]>(['next-step'])
 
-  const { tasks, addTask, updateTask, deleteTask, toggleStatus, saveOpacity, saveIDE, toggleWatcher, saveAIModel, saveAIScope } = useTasks(projectRoot)
+  const {
+    tasks,
+    addTask,
+    updateTask,
+    deleteTask,
+    toggleStatus,
+    saveOpacity,
+    saveIDE,
+    toggleWatcher,
+    saveAIModel,
+    saveAIScope,
+    saveAISuggestionVolume,
+    saveAISuggestionLenses
+  } = useTasks(projectRoot)
   const { notes, addNote, updateNote, deleteNote } = usePinnedNotes(projectRoot)
-  const { hasKey, brief, generatedAt: briefGeneratedAt, isGenerating, error: aiError, saveKey, generateBrief } = useAI(projectRoot)
+  const {
+    hasKey,
+    brief,
+    generatedAt: briefGeneratedAt,
+    isGenerating,
+    error: aiError,
+    saveKey,
+    generateBrief,
+    suggestions,
+    isSuggesting,
+    suggestError,
+    generateSuggestions,
+    dismissSuggestion,
+    removeSuggestion
+  } = useAI(projectRoot)
+
+  // Accept a suggestion → create a real task, then drop the card
+  const handleAcceptSuggestion = (s: Suggestion): void => {
+    const now = new Date().toISOString()
+    const task: Task = {
+      id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: s.taskType,
+      title: s.title,
+      body: s.body || undefined,
+      status: 'open',
+      priority: s.priority,
+      createdAt: now,
+      updatedAt: now,
+      tags: ['ai-suggested']
+    }
+    addTask(task)
+    removeSuggestion(s)
+  }
 
   // Load last project root on app startup
   useEffect(() => {
@@ -67,12 +122,18 @@ function App(): React.JSX.Element {
         const loadedWatcherEnabled = data.settings?.watcherEnabled || false
         const loadedAIModel = data.settings?.aiModel || 'claude-sonnet-4-6'
         const loadedAIScope = data.settings?.aiPrivacyScope || 'metadata+snippets'
+        const loadedAIVolume = data.settings?.aiSuggestionVolume || 'balanced'
+        const loadedAILenses = data.settings?.aiSuggestionLenses?.length
+          ? data.settings.aiSuggestionLenses
+          : (['next-step'] as SuggestionLens[])
 
         setOpacity(loadedOpacity)
         setPreferredIDE(loadedIDE)
         setWatcherEnabled(loadedWatcherEnabled)
         setAiModel(loadedAIModel)
         setAiScope(loadedAIScope)
+        setAiVolume(loadedAIVolume)
+        setAiLenses(loadedAILenses)
 
         // Restore opacity and window position
         await window.devfloat.window.setOpacity(loadedOpacity)
@@ -214,14 +275,14 @@ function App(): React.JSX.Element {
           Notes
         </button>
         <button
-          onClick={() => setActiveTab('cheatsheet')}
+          onClick={() => setActiveTab('companion')}
           className={`px-3 py-1 text-sm font-medium transition ${
-            activeTab === 'cheatsheet'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-neutral-500 hover:text-neutral-300'
+            activeTab === 'companion'
+              ? 'text-amber-400 border-b-2 border-amber-400'
+              : 'text-amber-600/70 hover:text-amber-400'
           }`}
         >
-          Cheatsheet
+          ✦ AI Companion
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -238,31 +299,34 @@ function App(): React.JSX.Element {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'tasks' && (
-          <div className="flex flex-col h-full overflow-hidden">
-            <ReentryBrief
-              hasKey={hasKey}
-              brief={brief}
-              generatedAt={briefGeneratedAt}
-              isGenerating={isGenerating}
-              error={aiError}
-              onGenerate={generateBrief}
-              onGoToSettings={() => setActiveTab('settings')}
-            />
-            <div className="flex-1 overflow-hidden">
-              <TaskList
-                tasks={tasks}
-                onAddTask={addTask}
-                onUpdateTask={updateTask}
-                onDeleteTask={deleteTask}
-                onToggleStatus={toggleStatus}
-              />
-            </div>
-          </div>
+          <TaskList
+            tasks={tasks}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
+            onToggleStatus={toggleStatus}
+          />
         )}
         {activeTab === 'notes' && (
           <PinnedNotes notes={notes} onAddNote={addNote} onUpdateNote={updateNote} onDeleteNote={deleteNote} />
         )}
-        {activeTab === 'cheatsheet' && <CheatsheetPanel />}
+        {activeTab === 'companion' && (
+          <AICompanionPanel
+            hasKey={hasKey}
+            brief={brief}
+            briefGeneratedAt={briefGeneratedAt}
+            isGeneratingBrief={isGenerating}
+            briefError={aiError}
+            onGenerateBrief={generateBrief}
+            suggestions={suggestions}
+            isSuggesting={isSuggesting}
+            suggestError={suggestError}
+            onGenerateSuggestions={generateSuggestions}
+            onAcceptSuggestion={handleAcceptSuggestion}
+            onDismissSuggestion={dismissSuggestion}
+            onGoToSettings={() => setActiveTab('settings')}
+          />
+        )}
         {activeTab === 'settings' && (
           <SettingsPanel
             projectRoot={projectRoot}
@@ -287,6 +351,16 @@ function App(): React.JSX.Element {
             onAIScopeChange={async (scope: AIPrivacyScope) => {
               setAiScope(scope)
               await saveAIScope(scope)
+            }}
+            initialAIVolume={aiVolume}
+            onAIVolumeChange={async (volume: SuggestionVolume) => {
+              setAiVolume(volume)
+              await saveAISuggestionVolume(volume)
+            }}
+            initialAILenses={aiLenses}
+            onAILensesChange={async (lenses: SuggestionLens[]) => {
+              setAiLenses(lenses)
+              await saveAISuggestionLenses(lenses)
             }}
           />
         )}

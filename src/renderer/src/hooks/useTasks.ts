@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, DevFloatData, IDE, AIPrivacyScope } from '../types'
+import { Task, DevFloatData, IDE, AIPrivacyScope, SuggestionVolume, SuggestionLens } from '../types'
 
 export function useTasks(projectRoot: string | null) {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -177,6 +177,40 @@ export function useTasks(projectRoot: string | null) {
     [projectRoot]
   )
 
+  // Save AI suggestion volume to settings
+  const saveAISuggestionVolume = useCallback(
+    async (volume: SuggestionVolume) => {
+      if (!projectRoot) return
+      try {
+        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+        await window.devfloat.storage.save(projectRoot, {
+          ...data,
+          settings: { ...data.settings, aiSuggestionVolume: volume }
+        })
+      } catch (error) {
+        console.error('Error saving AI suggestion volume:', error)
+      }
+    },
+    [projectRoot]
+  )
+
+  // Save AI suggestion lenses to settings
+  const saveAISuggestionLenses = useCallback(
+    async (lenses: SuggestionLens[]) => {
+      if (!projectRoot) return
+      try {
+        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+        await window.devfloat.storage.save(projectRoot, {
+          ...data,
+          settings: { ...data.settings, aiSuggestionLenses: lenses }
+        })
+      } catch (error) {
+        console.error('Error saving AI suggestion lenses:', error)
+      }
+    },
+    [projectRoot]
+  )
+
   // Toggle file watcher
   const toggleWatcher = useCallback(
     async (enabled: boolean) => {
@@ -216,6 +250,8 @@ export function useTasks(projectRoot: string | null) {
     saveIDE,
     toggleWatcher,
     saveAIModel,
-    saveAIScope
+    saveAIScope,
+    saveAISuggestionVolume,
+    saveAISuggestionLenses
   }
 }

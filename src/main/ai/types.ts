@@ -22,7 +22,33 @@ export interface GenerateBriefOptions {
   now: string
 }
 
+// AI Suggestion Engine
+export type SuggestionVolume = 'minimal' | 'balanced' | 'proactive'
+export type SuggestionLens = 'next-step' | 'code-quality' | 'missing-tests' | 'architecture'
+
+export interface Suggestion {
+  lens: SuggestionLens
+  taskType: 'TODO' | 'PENDING' | 'REFACTOR' | 'BUG'
+  title: string
+  body: string
+  priority: 'high' | 'medium' | 'low'
+  reasoning: string
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export interface GenerateSuggestionsOptions {
+  model: string
+  volume: SuggestionVolume
+  lenses: SuggestionLens[]
+  // Titles the user has already dismissed — the model is told not to repeat them.
+  dismissed: string[]
+}
+
 // First implementation is Anthropic; future providers implement this same shape.
 export interface AIProvider {
   generateBrief(digest: ProjectDigest, opts: GenerateBriefOptions): Promise<string>
+  generateSuggestions(
+    digest: ProjectDigest,
+    opts: GenerateSuggestionsOptions
+  ): Promise<Suggestion[]>
 }

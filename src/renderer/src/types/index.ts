@@ -4,6 +4,22 @@ export type Priority = 'high' | 'medium' | 'low'
 export type IDE = 'vscode' | 'intellij' | 'pycharm' | 'cursor' | 'sublime' | 'neovim' | 'custom'
 export type AIPrivacyScope = 'metadata' | 'metadata+snippets' | 'broad'
 
+// AI Suggestion Engine
+export type SuggestionVolume = 'minimal' | 'balanced' | 'proactive'
+export type SuggestionLens = 'next-step' | 'code-quality' | 'missing-tests' | 'architecture'
+
+// A single AI-proposed task. Accepting it creates a real Task; the reasoning
+// and confidence make it a sharp, evaluable proposal rather than noise.
+export interface Suggestion {
+  lens: SuggestionLens
+  taskType: TaskType
+  title: string
+  body: string
+  priority: Priority
+  reasoning: string
+  confidence: 'high' | 'medium' | 'low'
+}
+
 export interface Task {
   id: string
   type: TaskType
@@ -40,5 +56,7 @@ export interface DevFloatData {
     windowPosition?: { x: number; y: number }
     aiModel?: string
     aiPrivacyScope?: AIPrivacyScope
+    aiSuggestionVolume?: SuggestionVolume
+    aiSuggestionLenses?: SuggestionLens[]
   }
 }

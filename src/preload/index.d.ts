@@ -32,6 +32,20 @@ export interface DevFloatAPI {
       projectRoot: string
     ) => Promise<{ success: boolean; brief?: string; generatedAt?: string; error?: string }>
     getBrief: (projectRoot: string) => Promise<{ text: string; generatedAt: string } | null>
+    generateSuggestions: (projectRoot: string) => Promise<{
+      success: boolean
+      suggestions?: Array<{
+        lens: string
+        taskType: 'TODO' | 'PENDING' | 'REFACTOR' | 'BUG'
+        title: string
+        body: string
+        priority: 'high' | 'medium' | 'low'
+        reasoning: string
+        confidence: 'high' | 'medium' | 'low'
+      }>
+      error?: string
+    }>
+    dismissSuggestion: (projectRoot: string, title: string) => Promise<{ success: boolean }>
   }
   onTasksUpdated: (callback: () => void) => () => void
 }

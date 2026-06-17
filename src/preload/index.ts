@@ -34,7 +34,11 @@ const api = {
     hasKey: () => ipcRenderer.invoke('ai:hasKey'),
     setKey: (apiKey: string) => ipcRenderer.invoke('ai:setKey', apiKey),
     generateBrief: (projectRoot: string) => ipcRenderer.invoke('ai:generateBrief', projectRoot),
-    getBrief: (projectRoot: string) => ipcRenderer.invoke('ai:getBrief', projectRoot)
+    getBrief: (projectRoot: string) => ipcRenderer.invoke('ai:getBrief', projectRoot),
+    generateSuggestions: (projectRoot: string) =>
+      ipcRenderer.invoke('ai:generateSuggestions', projectRoot),
+    dismissSuggestion: (projectRoot: string, title: string) =>
+      ipcRenderer.invoke('ai:dismissSuggestion', projectRoot, title)
   },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)
