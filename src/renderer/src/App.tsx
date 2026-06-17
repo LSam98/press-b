@@ -23,6 +23,7 @@ function App(): React.JSX.Element {
   // AI Companion is the default landing tab — re-entering the app greets you with your brief
   const [activeTab, setActiveTab] = useState<Tab>('companion')
   const [projectRoot, setProjectRoot] = useState<string | null>(null)
+  const [recentProjects, setRecentProjects] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
   const [opacity, setOpacity] = useState(0.95)
@@ -76,7 +77,11 @@ function App(): React.JSX.Element {
       priority: s.priority,
       createdAt: now,
       updatedAt: now,
-      tags: ['ai-suggested']
+      tags: ['ai-suggested'],
+      // Already sanitized in main; carry through so the task is click-to-open.
+      // Cheap guard: only attach a line if there's a file to anchor it to.
+      linkedFile: s.linkedFile || undefined,
+      linkedLine: s.linkedFile ? s.linkedLine : undefined
     }
     addTask(task)
     removeSuggestion(s)
@@ -97,6 +102,7 @@ function App(): React.JSX.Element {
         if (lastRoot) {
           setProjectRoot(lastRoot)
         }
+        setRecentProjects(await window.devfloat.config.getRecentProjects())
       } catch (error) {
         console.error('[App] Error loading project root:', error)
         setApiError((error as Error).message)
@@ -170,8 +176,19 @@ function App(): React.JSX.Element {
       }
       setProjectRoot(newRoot)
       await window.devfloat.config.setProjectRoot(newRoot)
+      // Main already pushed newRoot onto recents — pull the updated list back
+      setRecentProjects(await window.devfloat.config.getRecentProjects())
     } catch (error) {
       console.error('[App] Error selecting project:', error)
+    }
+  }
+
+  // Forget a project from the recents list (does not change the active project)
+  const handleRemoveRecent = async (root: string): Promise<void> => {
+    try {
+      setRecentProjects(await window.devfloat.config.removeRecentProject(root))
+    } catch (error) {
+      console.error('[App] Error removing recent project:', error)
     }
   }
 
@@ -213,35 +230,73 @@ function App(): React.JSX.Element {
   }
 
   if (!projectRoot) {
+    const openFolder = (): void => {
+      if (!window.devfloat) return
+      window.devfloat.dialog
+        .selectFolder()
+        .then((folder) => {
+          if (folder) handleSelectProject(folder)
+        })
+        .catch((err) => console.error('Error selecting folder:', err))
+    }
+
     return (
-      <div className="flex flex-col h-screen bg-neutral-900">
+      <div className="flex flex-col h-screen bg-neutral-900 text-neutral-300">
         <TitleBar projectName="DevFloat" onSelectProject={handleSelectProject} />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center draggable-no-drag">
-            <p className="text-neutral-300 mb-4">Select a project folder to get started</p>
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-5">
+          <div className="w-full max-w-xs draggable-no-drag">
+            <div className="text-center mb-5">
+              <p className="text-lg font-semibold text-teal-400">✦ DevFloat</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                Your floating task & context layer. Open a project to begin.
+              </p>
+            </div>
+
             <button
-              onClick={() => {
-                console.log('Select Folder button clicked')
-                if (!window.devfloat) {
-                  console.error('API not available')
-                  return
-                }
-                window.devfloat.dialog
-                  .selectFolder()
-                  .then((folder) => {
-                    console.log('Folder selected:', folder)
-                    if (folder) {
-                      handleSelectProject(folder)
-                    }
-                  })
-                  .catch((err) => {
-                    console.error('Error selecting folder:', err)
-                  })
-              }}
-              className="draggable-no-drag px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition cursor-pointer"
+              onClick={openFolder}
+              className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition cursor-pointer"
             >
-              Select Folder
+              Open a project folder
             </button>
+
+            {recentProjects.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1.5">
+                  Recent projects
+                </p>
+                <div className="flex flex-col gap-1">
+                  {recentProjects.map((root) => (
+                    <div
+                      key={root}
+                      className="group flex items-center px-2 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700/70 cursor-pointer"
+                      onClick={() => handleSelectProject(root)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-neutral-200 truncate">
+                          {root.split(/[\\/]/).filter(Boolean).pop()}
+                        </div>
+                        <div className="text-[10px] text-neutral-500 truncate">{root}</div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveRecent(root)
+                        }}
+                        className="ml-1 px-1 text-neutral-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                        title="Forget this project"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-[10px] text-neutral-600 text-center mt-5">
+              Press <span className="font-mono text-neutral-500">Ctrl+Shift+F</span> anywhere to
+              toggle DevFloat.
+            </p>
           </div>
         </div>
       </div>
@@ -250,7 +305,13 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex flex-col h-screen bg-neutral-900 text-neutral-300">
-      <TitleBar projectName={projectRoot.split(/[\\/]/).pop() || 'DevFloat'} onSelectProject={handleSelectProject} />
+      <TitleBar
+        projectName={projectRoot.split(/[\\/]/).pop() || 'DevFloat'}
+        onSelectProject={handleSelectProject}
+        currentRoot={projectRoot}
+        recentProjects={recentProjects}
+        onRemoveRecent={handleRemoveRecent}
+      />
 
       {/* Tab Navigation */}
       <div className="flex border-b border-neutral-700 px-4 py-2">

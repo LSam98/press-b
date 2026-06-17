@@ -18,6 +18,8 @@ export interface Suggestion {
   priority: Priority
   reasoning: string
   confidence: 'high' | 'medium' | 'low'
+  linkedFile?: string
+  linkedLine?: number
 }
 
 export interface Task {

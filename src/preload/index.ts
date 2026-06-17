@@ -14,7 +14,10 @@ const api = {
   config: {
     getProjectRoot: () => ipcRenderer.invoke('config:getProjectRoot'),
     setProjectRoot: (projectRoot: string) =>
-      ipcRenderer.invoke('config:setProjectRoot', projectRoot)
+      ipcRenderer.invoke('config:setProjectRoot', projectRoot),
+    getRecentProjects: () => ipcRenderer.invoke('config:getRecentProjects'),
+    removeRecentProject: (projectRoot: string) =>
+      ipcRenderer.invoke('config:removeRecentProject', projectRoot)
   },
   window: {
     setOpacity: (opacity: number) => ipcRenderer.invoke('window:setOpacity', opacity),

@@ -210,10 +210,25 @@ export default function TaskList({
               />
             ))}
           </div>
-        ) : (
-          <div className="p-4 text-center text-neutral-500">
-            {tasks.length === 0 ? 'No tasks yet. Create one to get started!' : 'All tasks done! 🎉'}
+        ) : tasks.length === 0 ? (
+          <div className="p-5 text-center">
+            <p className="text-sm font-medium text-neutral-300">No tasks yet</p>
+            <div className="mt-2 text-xs text-neutral-500 space-y-1.5">
+              <p>
+                Hit <span className="text-teal-400 font-medium">+ New Task</span> to add one
+                manually.
+              </p>
+              <p>
+                Or enable the <span className="text-neutral-300">File Watcher</span> in Settings to
+                auto-capture{' '}
+                <span className="font-mono text-neutral-400">// TODO:</span> /{' '}
+                <span className="font-mono text-neutral-400">// REFACTOR:</span> comments from your
+                code.
+              </p>
+            </div>
           </div>
+        ) : (
+          <div className="p-4 text-center text-neutral-500">All tasks done! 🎉</div>
         )}
 
         {/* Done tasks */}

@@ -34,6 +34,10 @@ export interface Suggestion {
   priority: 'high' | 'medium' | 'low'
   reasoning: string
   confidence: 'high' | 'medium' | 'low'
+  // Optional: set when the suggestion is anchored to a code location in the digest,
+  // so the accepted task becomes click-to-open. Sanitized in sanitizeLink().
+  linkedFile?: string
+  linkedLine?: number
 }
 
 export interface GenerateSuggestionsOptions {

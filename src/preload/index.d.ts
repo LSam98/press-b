@@ -12,6 +12,8 @@ export interface DevFloatAPI {
   config: {
     getProjectRoot: () => Promise<string | null>
     setProjectRoot: (projectRoot: string) => Promise<{ success: boolean }>
+    getRecentProjects: () => Promise<string[]>
+    removeRecentProject: (projectRoot: string) => Promise<string[]>
   }
   window: {
     setOpacity: (opacity: number) => Promise<void>
@@ -42,6 +44,8 @@ export interface DevFloatAPI {
         priority: 'high' | 'medium' | 'low'
         reasoning: string
         confidence: 'high' | 'medium' | 'low'
+        linkedFile?: string
+        linkedLine?: number
       }>
       error?: string
     }>

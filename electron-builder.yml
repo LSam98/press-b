@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: devfloat
+appId: com.devfloat.app
+productName: DevFloat
 directories:
   buildResources: build
 files:

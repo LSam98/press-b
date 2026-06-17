@@ -1,4 +1,16 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, globalShortcut, screen } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  globalShortcut,
+  screen,
+  Tray,
+  Menu,
+  nativeImage,
+  Notification
+} from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -15,6 +27,9 @@ import { AnthropicProvider, describeAIError } from './ai/anthropic'
 import { PrivacyScope, SuggestionVolume, SuggestionLens } from './ai/types'
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null // module scope so it isn't garbage-collected
+let isQuitting = false // distinguishes a real quit from a close-to-tray
+let hasShownTrayHint = false // show the "still running in the tray" hint only once per session
 let fileWatcher: ReturnType<typeof watch> | null = null
 const detectedComments = new Map<string, boolean>() // Track file:lineNumber to avoid duplicates
 let debounceTimer: NodeJS.Timeout | null = null
@@ -56,6 +71,45 @@ function constrainWindowPosition(pos: { x: number; y: number }): { x: number; y:
   return pos
 }
 
+// Bring the window forward (restore if minimized). Used by the tray, the global
+// shortcut, and the single-instance handler.
+function showWindow(): void {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+// Toggle visibility — shared by the Ctrl/Cmd+Shift+F shortcut and the tray.
+function toggleWindow(): void {
+  if (!mainWindow) return
+  if (mainWindow.isVisible()) mainWindow.hide()
+  else showWindow()
+}
+
+// System-tray icon so DevFloat lives like a real utility (hidden window stays
+// reachable). Reuses the app icon asset.
+function createTray(): void {
+  if (tray) return
+  const image = nativeImage.createFromPath(icon)
+  tray = new Tray(image.isEmpty() ? icon : image)
+  tray.setToolTip('DevFloat')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Show / Hide DevFloat', click: () => toggleWindow() },
+      { type: 'separator' },
+      {
+        label: 'Quit DevFloat',
+        click: () => {
+          isQuitting = true
+          app.quit()
+        }
+      }
+    ])
+  )
+  tray.on('click', () => toggleWindow())
+}
+
 function createWindow(): BrowserWindow {
   // Create the floating task manager window
   const mainWindow = new BrowserWindow({
@@ -80,6 +134,24 @@ function createWindow(): BrowserWindow {
     mainWindow.show()
   })
 
+  // Close-to-tray: the X (and renderer close button) hide the window instead of
+  // quitting. Real quit happens via the tray menu or Cmd+Q (which set isQuitting).
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow.hide()
+      // First time only: tell the user where the window went so it doesn't feel
+      // like the app vanished.
+      if (!hasShownTrayHint && Notification.isSupported()) {
+        hasShownTrayHint = true
+        new Notification({
+          title: 'DevFloat is still running',
+          body: 'It’s tucked in the system tray. Click the tray icon or press Ctrl+Shift+F to bring it back.'
+        }).show()
+      }
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -98,7 +170,23 @@ function createWindow(): BrowserWindow {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+// Single instance: a second launch focuses the existing window instead of
+// spawning a duplicate.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => showWindow())
+}
+
+// Any real quit path (tray Quit, Cmd+Q) must bypass close-to-tray.
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.devfloat')
 
@@ -109,6 +197,9 @@ app.whenReady().then(() => {
 
   // Create main window
   mainWindow = createWindow()
+
+  // System tray (so the app is reachable when the window is hidden)
+  createTray()
 
   // Auto-save window position whenever it is dragged (debounced 500 ms)
   mainWindow.on('moved', () => {
@@ -130,17 +221,9 @@ app.whenReady().then(() => {
     }, 500)
   })
 
-  // Global keyboard shortcut to toggle window visibility
+  // Global keyboard shortcut to toggle window visibility (shared with the tray)
   const shortcutKey = process.platform === 'darwin' ? 'Cmd+Shift+F' : 'Ctrl+Shift+F'
-  globalShortcut.register(shortcutKey, () => {
-    if (!mainWindow) return
-
-    if (mainWindow.isVisible()) {
-      mainWindow.hide()
-    } else {
-      mainWindow.show()
-    }
-  })
+  globalShortcut.register(shortcutKey, () => toggleWindow())
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window when the dock icon is clicked
@@ -166,6 +249,47 @@ app.on('window-all-closed', () => {
 // Helper: Get project config directory
 function getConfigDir(): string {
   return path.join(app.getPath('userData'), 'devfloat-config')
+}
+
+const RECENTS_CAP = 8
+
+interface AppConfig {
+  lastProjectRoot?: string
+  recentProjects?: string[]
+}
+
+// Read the machine-local app config (project root + recents). Backward-compatible
+// with the old `{ lastProjectRoot }`-only shape.
+function readConfig(): AppConfig {
+  try {
+    const file = path.join(getConfigDir(), 'config.json')
+    if (!fs.existsSync(file)) return {}
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+    return {
+      lastProjectRoot: parsed.lastProjectRoot || undefined,
+      recentProjects: Array.isArray(parsed.recentProjects) ? parsed.recentProjects : undefined
+    }
+  } catch (error) {
+    console.error('Error reading config:', error)
+    return {}
+  }
+}
+
+function writeConfig(config: AppConfig): void {
+  const dir = getConfigDir()
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8')
+}
+
+// Normalize for case-insensitive de-dupe on Windows (and trailing-slash safety).
+function normalizeRoot(p: string): string {
+  return path.resolve(p).toLowerCase()
+}
+
+// Push a root to the front of the recents list, de-duped + capped.
+function pushRecent(recents: string[], root: string): string[] {
+  const norm = normalizeRoot(root)
+  return [root, ...recents.filter((r) => normalizeRoot(r) !== norm)].slice(0, RECENTS_CAP)
 }
 
 // Helper: Get .devfloat.json path for a project
@@ -521,44 +645,52 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
 
 // Get last used project root from config
 ipcMain.handle('config:getProjectRoot', async () => {
-  try {
-    const configDir = getConfigDir()
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true })
-    }
-
-    const configFile = path.join(configDir, 'config.json')
-    if (!fs.existsSync(configFile)) {
-      return null
-    }
-
-    const config = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
-    const root = config.lastProjectRoot || null
-    currentProjectRoot = root // Sync module-level tracker on startup
-    return root
-  } catch (error) {
-    console.error('Error loading config:', error)
-    return null
-  }
+  const root = readConfig().lastProjectRoot || null
+  currentProjectRoot = root // Sync module-level tracker on startup
+  return root
 })
 
-// Save last used project root to config
+// Save last used project root to config + push onto the recents list
 ipcMain.handle('config:setProjectRoot', async (_event, projectRoot: string) => {
   try {
-    const configDir = getConfigDir()
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true })
-    }
-
-    const configFile = path.join(configDir, 'config.json')
-    const config = { lastProjectRoot: projectRoot }
-    fs.writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf-8')
+    const config = readConfig()
+    writeConfig({
+      lastProjectRoot: projectRoot,
+      recentProjects: pushRecent(config.recentProjects || [], projectRoot)
+    })
     currentProjectRoot = projectRoot // Keep module-level tracker in sync
     return { success: true }
   } catch (error) {
     console.error('Error saving config:', error)
     throw new Error(`Failed to save config: ${error}`)
   }
+})
+
+// Get recent projects (pruning any whose folder no longer exists)
+ipcMain.handle('config:getRecentProjects', async () => {
+  const config = readConfig()
+  // Seed from lastProjectRoot if the recents list was never written (old config)
+  const raw = config.recentProjects || (config.lastProjectRoot ? [config.lastProjectRoot] : [])
+  const pruned = raw.filter((r) => {
+    try {
+      return fs.existsSync(r) && fs.statSync(r).isDirectory()
+    } catch {
+      return false
+    }
+  })
+  if (pruned.length !== raw.length) {
+    writeConfig({ ...config, recentProjects: pruned })
+  }
+  return pruned
+})
+
+// Forget a project from the recents list (does NOT change the active project)
+ipcMain.handle('config:removeRecentProject', async (_event, projectRoot: string) => {
+  const config = readConfig()
+  const norm = normalizeRoot(projectRoot)
+  const recentProjects = (config.recentProjects || []).filter((r) => normalizeRoot(r) !== norm)
+  writeConfig({ ...config, recentProjects })
+  return recentProjects
 })
 
 // Set window opacity

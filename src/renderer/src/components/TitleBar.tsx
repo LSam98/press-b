@@ -1,9 +1,21 @@
+import ProjectSwitcher from './ProjectSwitcher'
+
 interface TitleBarProps {
   projectName: string
   onSelectProject: (projectRoot: string) => void
+  // Optional: when a project is active, render the recents switcher instead of a static title.
+  currentRoot?: string | null
+  recentProjects?: string[]
+  onRemoveRecent?: (root: string) => void
 }
 
-export default function TitleBar({ projectName, onSelectProject }: TitleBarProps): React.JSX.Element {
+export default function TitleBar({
+  projectName,
+  onSelectProject,
+  currentRoot,
+  recentProjects,
+  onRemoveRecent
+}: TitleBarProps): React.JSX.Element {
   const handleClose = () => {
     if (window.devfloat?.window?.close) {
       window.devfloat.window.close()
@@ -27,8 +39,18 @@ export default function TitleBar({ projectName, onSelectProject }: TitleBarProps
 
   return (
     <div className="draggable flex items-center justify-between h-12 bg-neutral-800 border-b border-neutral-700 px-3 py-2 flex-shrink-0">
-      <div className="flex-1 text-center">
-        <h1 className="text-sm font-semibold text-neutral-200 truncate">{projectName}</h1>
+      <div className="flex-1 flex justify-center min-w-0">
+        {currentRoot ? (
+          <ProjectSwitcher
+            currentRoot={currentRoot}
+            recentProjects={recentProjects || []}
+            onSelect={onSelectProject}
+            onRemove={(root) => onRemoveRecent?.(root)}
+            onOpenFolder={handleSelectFolder}
+          />
+        ) : (
+          <h1 className="text-sm font-semibold text-neutral-200 truncate">{projectName}</h1>
+        )}
       </div>
       <div className="draggable-no-drag flex items-center gap-2 ml-2">
         <button
@@ -46,7 +68,7 @@ export default function TitleBar({ projectName, onSelectProject }: TitleBarProps
         <button
           onClick={handleClose}
           className="draggable-no-drag p-1 hover:bg-red-900 rounded transition text-neutral-400 hover:text-red-400 cursor-pointer"
-          title="Close DevFloat (Esc)"
+          title="Hide to tray — press Ctrl+Shift+F to reopen"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
             <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />

@@ -6,6 +6,7 @@
 // the model is configurable per-project via settings.
 
 import Anthropic from '@anthropic-ai/sdk'
+import * as path from 'path'
 import {
   AIProvider,
   GenerateBriefOptions,
@@ -48,11 +49,37 @@ CORE RULES — follow these exactly:
 - Each suggestion is a concrete, actionable task with a short, specific title.
 - For each, give a one-sentence "reasoning" that references something real in the digest (a task, note, file, or pattern), and an honest confidence level.
 
+The digest surfaces each task's location as "[file:line]" and may include a "LINKED CODE SNIPPETS" section showing the exact relative path and code. When — and ONLY when — your suggestion is anchored to a specific code location that appears in the digest, include "linkedFile" (the exact relative path as shown, e.g. "src/App.tsx") and "linkedLine" (the integer line number) so the user can jump straight to it. If the suggestion is general or you are unsure of the location, OMIT both fields entirely. Never invent a path or line.
+
 You will be told which LENSES to focus on and the MAXIMUM number of suggestions. Respect both.
 
 Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
-{"suggestions":[{"lens":"<one of the requested lenses>","taskType":"TODO|PENDING|REFACTOR|BUG","title":"...","body":"...","priority":"high|medium|low","reasoning":"...","confidence":"high|medium|low"}]}
+{"suggestions":[{"lens":"<one of the requested lenses>","taskType":"TODO|PENDING|REFACTOR|BUG","title":"...","body":"...","priority":"high|medium|low","reasoning":"...","confidence":"high|medium|low","linkedFile":"<optional relative path>","linkedLine":<optional integer>}]}
 If you have nothing worth suggesting, return {"suggestions":[]}.`
+
+// Strip a model-provided linked location to something safe: a relative,
+// in-project path + a positive integer line. Either field may end up undefined
+// (a bare linkedFile still opens at line 1; a bare linkedLine is meaningless and
+// dropped). Guards against absolute paths and traversal.
+function sanitizeLink(s: Suggestion): Suggestion {
+  let linkedFile: string | undefined
+  if (
+    typeof s.linkedFile === 'string' &&
+    s.linkedFile.trim() !== '' &&
+    !path.isAbsolute(s.linkedFile) &&
+    !/^[a-zA-Z]:[\\/]/.test(s.linkedFile) && // Windows drive prefix
+    !s.linkedFile.split(/[\\/]/).includes('..')
+  ) {
+    linkedFile = s.linkedFile.trim()
+  }
+  const linkedLine =
+    typeof s.linkedLine === 'number' && Number.isInteger(s.linkedLine) && s.linkedLine > 0
+      ? s.linkedLine
+      : undefined
+
+  // linkedLine without a file is meaningless — drop it.
+  return { ...s, linkedFile, linkedLine: linkedFile ? linkedLine : undefined }
+}
 
 // Tolerant extraction of the JSON object from the model's text response.
 function parseSuggestions(text: string): Suggestion[] {
@@ -138,10 +165,12 @@ export class AnthropicProvider implements AIProvider {
       .map((block) => block.text)
       .join('')
 
-    // Trust-but-verify: enforce the cap and the requested lenses client-side too.
+    // Trust-but-verify: enforce the cap and the requested lenses client-side too,
+    // and sanitize any model-provided file:line link.
     return parseSuggestions(text)
       .filter((s) => lenses.includes(s.lens))
       .slice(0, cap)
+      .map(sanitizeLink)
   }
 }
 
