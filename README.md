@@ -2,7 +2,10 @@
 
 **A floating companion that holds your project's working state — and helps you recall it.**
 
-Named after the League of Legends "press B to recall" — Press B is about *returning to base*: you sit back down at a project after a day (or a month), press B, and you're back in context. It lives in a small always-on-top window beside your editor, scoped to one project folder, and keeps the things you lose between sessions: what you were doing, what's left, and why.
+Press B is all about *returning to base*: you sit back down at a project after a day (or a month), press B, and you're back in context. It lives in a 'floating' always-on-top window above your chosen editor, scoped to one project folder, and keeps the things you lose between sessions: what you were doing, what's left, and why.
+No more wasting time trying to get back to your previous mental state. 
+No more jumping between millions of tabs to try and remember the specific instructions you were following.
+Press B allows you to easily recall where you left off, as if you merely took a coffee break.
 
 > Status: **early and experimental.** Built for the author's own use and a handful of testers. Things will change.
 
