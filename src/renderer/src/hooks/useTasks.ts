@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, DevFloatData, IDE, AIPrivacyScope, SuggestionVolume, SuggestionLens } from '../types'
+import { Task, PressBData, IDE, AIPrivacyScope, SuggestionVolume, SuggestionLens } from '../types'
 
 export function useTasks(projectRoot: string | null) {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -11,7 +11,7 @@ export function useTasks(projectRoot: string | null) {
 
     setIsLoading(true)
     try {
-      const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+      const data = (await window.pressB.storage.load(projectRoot)) as PressBData
       setTasks(data.tasks || [])
     } catch (error) {
       console.error('Error loading tasks:', error)
@@ -27,12 +27,12 @@ export function useTasks(projectRoot: string | null) {
       if (!projectRoot) return
 
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        const updatedData: DevFloatData = {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        const updatedData: PressBData = {
           ...data,
           tasks: newTasks
         }
-        await window.devfloat.storage.save(projectRoot, updatedData)
+        await window.pressB.storage.save(projectRoot, updatedData)
         setTasks(newTasks)
       } catch (error) {
         console.error('Error saving tasks:', error)
@@ -49,7 +49,7 @@ export function useTasks(projectRoot: string | null) {
   // Listen for real-time push from the file watcher (main process)
   useEffect(() => {
     if (!projectRoot) return
-    const unsubscribe = window.devfloat.onTasksUpdated(loadTasks)
+    const unsubscribe = window.pressB.onTasksUpdated(loadTasks)
     return unsubscribe
   }, [projectRoot, loadTasks])
 
@@ -105,15 +105,15 @@ export function useTasks(projectRoot: string | null) {
       if (!projectRoot) return
 
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        const updatedData: DevFloatData = {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        const updatedData: PressBData = {
           ...data,
           settings: {
             ...data.settings,
             opacity
           }
         }
-        await window.devfloat.storage.save(projectRoot, updatedData)
+        await window.pressB.storage.save(projectRoot, updatedData)
       } catch (error) {
         console.error('Error saving opacity:', error)
       }
@@ -127,15 +127,15 @@ export function useTasks(projectRoot: string | null) {
       if (!projectRoot) return
 
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        const updatedData: DevFloatData = {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        const updatedData: PressBData = {
           ...data,
           settings: {
             ...data.settings,
             preferredIDE: ide
           }
         }
-        await window.devfloat.storage.save(projectRoot, updatedData)
+        await window.pressB.storage.save(projectRoot, updatedData)
       } catch (error) {
         console.error('Error saving IDE preference:', error)
       }
@@ -148,8 +148,8 @@ export function useTasks(projectRoot: string | null) {
     async (model: string) => {
       if (!projectRoot) return
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        await window.devfloat.storage.save(projectRoot, {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        await window.pressB.storage.save(projectRoot, {
           ...data,
           settings: { ...data.settings, aiModel: model }
         })
@@ -165,8 +165,8 @@ export function useTasks(projectRoot: string | null) {
     async (scope: AIPrivacyScope) => {
       if (!projectRoot) return
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        await window.devfloat.storage.save(projectRoot, {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        await window.pressB.storage.save(projectRoot, {
           ...data,
           settings: { ...data.settings, aiPrivacyScope: scope }
         })
@@ -182,8 +182,8 @@ export function useTasks(projectRoot: string | null) {
     async (volume: SuggestionVolume) => {
       if (!projectRoot) return
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        await window.devfloat.storage.save(projectRoot, {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        await window.pressB.storage.save(projectRoot, {
           ...data,
           settings: { ...data.settings, aiSuggestionVolume: volume }
         })
@@ -199,8 +199,8 @@ export function useTasks(projectRoot: string | null) {
     async (lenses: SuggestionLens[]) => {
       if (!projectRoot) return
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        await window.devfloat.storage.save(projectRoot, {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        await window.pressB.storage.save(projectRoot, {
           ...data,
           settings: { ...data.settings, aiSuggestionLenses: lenses }
         })
@@ -218,20 +218,20 @@ export function useTasks(projectRoot: string | null) {
 
       try {
         if (enabled) {
-          await window.devfloat.watcher.start(projectRoot)
+          await window.pressB.watcher.start(projectRoot)
         } else {
-          await window.devfloat.watcher.stop()
+          await window.pressB.watcher.stop()
         }
 
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        const updatedData: DevFloatData = {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        const updatedData: PressBData = {
           ...data,
           settings: {
             ...data.settings,
             watcherEnabled: enabled
           }
         }
-        await window.devfloat.storage.save(projectRoot, updatedData)
+        await window.pressB.storage.save(projectRoot, updatedData)
       } catch (error) {
         console.error('Error toggling watcher:', error)
       }

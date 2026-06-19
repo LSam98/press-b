@@ -16,7 +16,7 @@ export function useAI(projectRoot: string | null) {
   // Check whether an API key is stored (on mount)
   const refreshKeyStatus = useCallback(async () => {
     try {
-      const result = await window.devfloat.ai.hasKey()
+      const result = await window.pressB.ai.hasKey()
       setHasKey(result)
     } catch (e) {
       console.error('Error checking API key:', e)
@@ -35,7 +35,7 @@ export function useAI(projectRoot: string | null) {
       return
     }
     let cancelled = false
-    window.devfloat.ai
+    window.pressB.ai
       .getBrief(projectRoot)
       .then((stored) => {
         if (cancelled) return
@@ -52,7 +52,7 @@ export function useAI(projectRoot: string | null) {
   // Save (or clear) the API key, then refresh status
   const saveKey = useCallback(
     async (apiKey: string) => {
-      await window.devfloat.ai.setKey(apiKey)
+      await window.pressB.ai.setKey(apiKey)
       await refreshKeyStatus()
     },
     [refreshKeyStatus]
@@ -64,7 +64,7 @@ export function useAI(projectRoot: string | null) {
     setIsGenerating(true)
     setError(null)
     try {
-      const result = await window.devfloat.ai.generateBrief(projectRoot)
+      const result = await window.pressB.ai.generateBrief(projectRoot)
       if (result.success && result.brief) {
         setBrief(result.brief)
         setGeneratedAt(result.generatedAt ?? new Date().toISOString())
@@ -90,7 +90,7 @@ export function useAI(projectRoot: string | null) {
     setIsSuggesting(true)
     setSuggestError(null)
     try {
-      const result = await window.devfloat.ai.generateSuggestions(projectRoot)
+      const result = await window.pressB.ai.generateSuggestions(projectRoot)
       if (result.success) {
         setSuggestions((result.suggestions as Suggestion[]) || [])
       } else {
@@ -107,7 +107,7 @@ export function useAI(projectRoot: string | null) {
   const dismissSuggestion = useCallback(
     async (suggestion: Suggestion) => {
       if (projectRoot) {
-        await window.devfloat.ai.dismissSuggestion(projectRoot, suggestion.title)
+        await window.pressB.ai.dismissSuggestion(projectRoot, suggestion.title)
       }
       setSuggestions((prev) => (prev ? prev.filter((s) => s !== suggestion) : prev))
     },

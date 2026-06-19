@@ -21,7 +21,7 @@ interface AICompanionPanelProps {
   onGoToSettings: () => void
 }
 
-// The AI Companion tab — home for everything AI in DevFloat. Re-Entry Brief up
+// The AI Companion tab — home for everything AI in Press B. Re-Entry Brief up
 // top (teal), on-demand Suggestions below (amber/yellow).
 export default function AICompanionPanel(props: AICompanionPanelProps): React.JSX.Element {
   return (

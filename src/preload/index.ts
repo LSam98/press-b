@@ -58,8 +58,8 @@ console.log('[Preload] contextIsolation enabled:', process.contextIsolated)
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    console.log('[Preload] Exposing devfloat API')
-    contextBridge.exposeInMainWorld('devfloat', api)
+    console.log('[Preload] Exposing pressB API')
+    contextBridge.exposeInMainWorld('pressB', api)
     console.log('[Preload] APIs exposed successfully')
   } catch (error) {
     console.error('[Preload] Error exposing APIs:', error)
@@ -67,5 +67,5 @@ if (process.contextIsolated) {
 } else {
   console.log('[Preload] Context isolation disabled, using window globals')
   // @ts-ignore (define in dts)
-  window.devfloat = api
+  window.pressB = api
 }

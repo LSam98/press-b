@@ -76,11 +76,11 @@ export default function SettingsPanel({
   const handleOpacityChange = async (value: number) => {
     setOpacity(value)
     try {
-      if (!window.devfloat) {
+      if (!window.pressB) {
         console.error('API not available')
         return
       }
-      await window.devfloat.window.setOpacity(value)
+      await window.pressB.window.setOpacity(value)
       // Call the callback if provided (to save opacity to settings)
       if (onOpacityChange) {
         await onOpacityChange(value)
@@ -92,11 +92,11 @@ export default function SettingsPanel({
 
   const handleSelectFolder = async () => {
     try {
-      if (!window.devfloat) {
+      if (!window.pressB) {
         console.error('API not available')
         return
       }
-      const folder = await window.devfloat.dialog.selectFolder()
+      const folder = await window.pressB.dialog.selectFolder()
       if (folder) {
         onSelectProject(folder)
       }
@@ -326,7 +326,7 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">About</h3>
         <div className="text-xs text-neutral-400 space-y-1">
           <p>
-            <span className="font-semibold">DevFloat</span> v1.2.0
+            <span className="font-semibold">Press B</span> v1.3.0
           </p>
           <p>A floating task and context layer for developers.</p>
         </div>

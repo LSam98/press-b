@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-interface DevFloatAPI {
+interface PressBAPI {
   storage: {
     load: (projectRoot: string) => Promise<unknown>
     save: (projectRoot: string, data: unknown) => Promise<{ success: boolean }>
@@ -16,6 +16,6 @@ interface DevFloatAPI {
 
 declare global {
   interface Window {
-    devfloat?: DevFloatAPI
+    pressB?: PressBAPI
   }
 }

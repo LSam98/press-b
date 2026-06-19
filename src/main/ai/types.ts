@@ -4,8 +4,8 @@
 export type PrivacyScope = 'metadata' | 'metadata+snippets' | 'broad'
 
 // A compact, bounded text summary of the project's current state, assembled
-// from .devfloat.json (+ optional linked-code snippets). This is the same
-// component a future "DevFloat-as-MCP-server" would expose.
+// from .pressb.json (+ optional linked-code snippets). This is the same
+// component a future "Press B-as-MCP-server" would expose.
 export interface ProjectDigest {
   // Human-readable text block sent to the model as the stable, cacheable context.
   text: string

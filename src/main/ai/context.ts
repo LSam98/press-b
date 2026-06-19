@@ -1,5 +1,5 @@
-// Assembles a compact "project digest" from .devfloat.json — the structured
-// signal DevFloat already holds (tasks, priorities, notes, file links) plus a
+// Assembles a compact "project digest" from .pressb.json — the structured
+// signal Press B already holds (tasks, priorities, notes, file links) plus a
 // bounded window of code around each linked line. This text block is what the
 // AI provider receives as stable, cacheable context.
 
@@ -42,7 +42,13 @@ function readSnippet(projectRoot: string, relFile: string, line: number): string
 }
 
 export function buildProjectDigest(projectRoot: string, scope: PrivacyScope): ProjectDigest {
-  const tasksFile = path.join(projectRoot, '.devfloat.json')
+  // Read the Press B data file; fall back to the legacy .devfloat.json if a
+  // project hasn't been migrated yet (storage:load migrates it on first open).
+  let tasksFile = path.join(projectRoot, '.pressb.json')
+  if (!fs.existsSync(tasksFile)) {
+    const legacy = path.join(projectRoot, '.devfloat.json')
+    if (fs.existsSync(legacy)) tasksFile = legacy
+  }
 
   let data: { project?: string; tasks?: RawTask[]; pinnedNotes?: Array<{ title: string; content: string }> } = {}
   if (fs.existsSync(tasksFile)) {

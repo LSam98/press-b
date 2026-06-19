@@ -1,7 +1,7 @@
 // Persists the most recent re-entry brief per project, so it survives app
-// restarts. Stored in the app's userData config dir (NOT in .devfloat.json) —
+// restarts. Stored in the app's userData config dir (NOT in .pressb.json) —
 // the brief is personal, machine-local session memory, and keeping it out of
-// the repo avoids git diff noise when dogfooding DevFloat on its own project.
+// the repo avoids git diff noise when dogfooding Press B on its own project.
 
 import { app } from 'electron'
 import * as fs from 'fs'
@@ -13,11 +13,11 @@ export interface StoredBrief {
 }
 
 function getBriefsFilePath(): string {
-  return path.join(app.getPath('userData'), 'devfloat-config', 'briefs.json')
+  return path.join(app.getPath('userData'), 'press-b-config', 'briefs.json')
 }
 
 function ensureConfigDir(): void {
-  const dir = path.join(app.getPath('userData'), 'devfloat-config')
+  const dir = path.join(app.getPath('userData'), 'press-b-config')
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 }
 

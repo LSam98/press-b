@@ -1,5 +1,5 @@
-appId: com.devfloat.app
-productName: DevFloat
+appId: com.pressb.app
+productName: Press B
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: devfloat
+  executableName: press-b
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -38,6 +38,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
+# Auto-update deferred — installers are distributed manually for now.
+# When ready: switch to a GitHub provider and wire electron-updater.

@@ -43,7 +43,7 @@ export interface PinnedNote {
   createdAt: string
 }
 
-export interface DevFloatData {
+export interface PressBData {
   project: string
   version: string
   tasks: Task[]

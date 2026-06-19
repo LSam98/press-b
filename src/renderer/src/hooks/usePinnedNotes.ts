@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { PinnedNote, DevFloatData } from '../types'
+import { PinnedNote, PressBData } from '../types'
 
 export function usePinnedNotes(projectRoot: string | null) {
   const [notes, setNotes] = useState<PinnedNote[]>([])
@@ -11,7 +11,7 @@ export function usePinnedNotes(projectRoot: string | null) {
 
     setIsLoading(true)
     try {
-      const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+      const data = (await window.pressB.storage.load(projectRoot)) as PressBData
       setNotes(data.pinnedNotes || [])
     } catch (error) {
       console.error('Error loading notes:', error)
@@ -27,12 +27,12 @@ export function usePinnedNotes(projectRoot: string | null) {
       if (!projectRoot) return
 
       try {
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
-        const updatedData: DevFloatData = {
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
+        const updatedData: PressBData = {
           ...data,
           pinnedNotes: newNotes
         }
-        await window.devfloat.storage.save(projectRoot, updatedData)
+        await window.pressB.storage.save(projectRoot, updatedData)
         setNotes(newNotes)
       } catch (error) {
         console.error('Error saving notes:', error)

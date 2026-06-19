@@ -1,6 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-export interface DevFloatAPI {
+export interface PressBAPI {
   storage: {
     load: (projectRoot: string) => Promise<unknown>
     save: (projectRoot: string, data: unknown) => Promise<{ success: boolean }>
@@ -57,6 +57,6 @@ export interface DevFloatAPI {
 declare global {
   interface Window {
     electron: ElectronAPI
-    devfloat: DevFloatAPI
+    pressB: PressBAPI
   }
 }

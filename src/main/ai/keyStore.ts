@@ -2,7 +2,7 @@
 //
 // The key is encrypted at rest with Electron's safeStorage (OS-backed: DPAPI on
 // Windows, Keychain on macOS, libsecret on Linux) and written to the app's
-// userData config dir. It is NEVER stored in the project's .devfloat.json,
+// userData config dir. It is NEVER stored in the project's .pressb.json,
 // which lives in the repo and would leak the key into version control.
 
 import { app, safeStorage } from 'electron'
@@ -10,11 +10,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 function getKeyFilePath(): string {
-  return path.join(app.getPath('userData'), 'devfloat-config', 'ai-key.enc')
+  return path.join(app.getPath('userData'), 'press-b-config', 'ai-key.enc')
 }
 
 function ensureConfigDir(): void {
-  const dir = path.join(app.getPath('userData'), 'devfloat-config')
+  const dir = path.join(app.getPath('userData'), 'press-b-config')
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }

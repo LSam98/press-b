@@ -8,11 +8,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 function getFilePath(): string {
-  return path.join(app.getPath('userData'), 'devfloat-config', 'dismissed-suggestions.json')
+  return path.join(app.getPath('userData'), 'press-b-config', 'dismissed-suggestions.json')
 }
 
 function ensureConfigDir(): void {
-  const dir = path.join(app.getPath('userData'), 'devfloat-config')
+  const dir = path.join(app.getPath('userData'), 'press-b-config')
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
 }
 

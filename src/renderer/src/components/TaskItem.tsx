@@ -64,9 +64,9 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
   }
 
   const handleOpenLinkedFile = async () => {
-    if (!task.linkedFile || !window.devfloat) return
+    if (!task.linkedFile || !window.pressB) return
     try {
-      await window.devfloat.shell.openFile(task.linkedFile, task.linkedLine)
+      await window.pressB.shell.openFile(task.linkedFile, task.linkedLine)
     } catch (error) {
       console.error('Error opening file:', error)
     }

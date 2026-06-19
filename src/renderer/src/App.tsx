@@ -9,7 +9,7 @@ import { usePinnedNotes } from './hooks/usePinnedNotes'
 import { useAI } from './hooks/useAI'
 import {
   IDE,
-  DevFloatData,
+  PressBData,
   AIPrivacyScope,
   SuggestionVolume,
   SuggestionLens,
@@ -91,18 +91,18 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const loadProjectRoot = async () => {
       try {
-        console.log('[App] Checking for window.devfloat...')
-        if (!window.devfloat) {
-          throw new Error('window.devfloat is undefined - preload script may not have loaded')
+        console.log('[App] Checking for window.pressB...')
+        if (!window.pressB) {
+          throw new Error('window.pressB is undefined - preload script may not have loaded')
         }
-        console.log('[App] window.devfloat is available:', window.devfloat)
+        console.log('[App] window.pressB is available:', window.pressB)
 
-        const lastRoot = await window.devfloat.config.getProjectRoot()
+        const lastRoot = await window.pressB.config.getProjectRoot()
         console.log('[App] Last project root:', lastRoot)
         if (lastRoot) {
           setProjectRoot(lastRoot)
         }
-        setRecentProjects(await window.devfloat.config.getRecentProjects())
+        setRecentProjects(await window.pressB.config.getRecentProjects())
       } catch (error) {
         console.error('[App] Error loading project root:', error)
         setApiError((error as Error).message)
@@ -121,7 +121,7 @@ function App(): React.JSX.Element {
 
       try {
         // Load full data to get opacity, IDE preference, and window position
-        const data = (await window.devfloat.storage.load(projectRoot)) as DevFloatData
+        const data = (await window.pressB.storage.load(projectRoot)) as PressBData
         const loadedOpacity = data.settings?.opacity || 0.95
         const loadedIDE = data.settings?.preferredIDE || 'vscode'
         const windowPosition = data.settings?.windowPosition || { x: 1540, y: 100 }
@@ -142,13 +142,13 @@ function App(): React.JSX.Element {
         setAiLenses(loadedAILenses)
 
         // Restore opacity and window position
-        await window.devfloat.window.setOpacity(loadedOpacity)
-        await window.devfloat.window.restorePosition(windowPosition)
+        await window.pressB.window.setOpacity(loadedOpacity)
+        await window.pressB.window.restorePosition(windowPosition)
 
         // Initialize watcher if enabled
         if (loadedWatcherEnabled) {
           try {
-            await window.devfloat.watcher.start(projectRoot)
+            await window.pressB.watcher.start(projectRoot)
           } catch (error) {
             console.error('[App] Error starting watcher:', error)
           }
@@ -163,21 +163,21 @@ function App(): React.JSX.Element {
 
   const handleSelectProject = async (newRoot: string) => {
     try {
-      if (!window.devfloat) {
+      if (!window.pressB) {
         throw new Error('API not available')
       }
       // Stop watcher before changing project
       if (watcherEnabled) {
         try {
-          await window.devfloat.watcher.stop()
+          await window.pressB.watcher.stop()
         } catch (error) {
           console.error('[App] Error stopping watcher:', error)
         }
       }
       setProjectRoot(newRoot)
-      await window.devfloat.config.setProjectRoot(newRoot)
+      await window.pressB.config.setProjectRoot(newRoot)
       // Main already pushed newRoot onto recents — pull the updated list back
-      setRecentProjects(await window.devfloat.config.getRecentProjects())
+      setRecentProjects(await window.pressB.config.getRecentProjects())
     } catch (error) {
       console.error('[App] Error selecting project:', error)
     }
@@ -186,7 +186,7 @@ function App(): React.JSX.Element {
   // Forget a project from the recents list (does not change the active project)
   const handleRemoveRecent = async (root: string): Promise<void> => {
     try {
-      setRecentProjects(await window.devfloat.config.removeRecentProject(root))
+      setRecentProjects(await window.pressB.config.removeRecentProject(root))
     } catch (error) {
       console.error('[App] Error removing recent project:', error)
     }
@@ -196,7 +196,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     return () => {
       if (watcherEnabled) {
-        window.devfloat?.watcher
+        window.pressB?.watcher
           .stop()
           .catch((error) => console.error('[App] Error stopping watcher on cleanup:', error))
       }
@@ -206,7 +206,7 @@ function App(): React.JSX.Element {
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-neutral-900">
-        <TitleBar projectName="DevFloat" onSelectProject={handleSelectProject} />
+        <TitleBar projectName="Press B" onSelectProject={handleSelectProject} />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-neutral-500">Loading...</p>
         </div>
@@ -217,7 +217,7 @@ function App(): React.JSX.Element {
   if (apiError) {
     return (
       <div className="flex flex-col h-screen bg-neutral-900">
-        <TitleBar projectName="DevFloat" onSelectProject={handleSelectProject} />
+        <TitleBar projectName="Press B" onSelectProject={handleSelectProject} />
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center">
             <p className="text-red-400 mb-2 font-semibold">API Error</p>
@@ -231,8 +231,8 @@ function App(): React.JSX.Element {
 
   if (!projectRoot) {
     const openFolder = (): void => {
-      if (!window.devfloat) return
-      window.devfloat.dialog
+      if (!window.pressB) return
+      window.pressB.dialog
         .selectFolder()
         .then((folder) => {
           if (folder) handleSelectProject(folder)
@@ -242,11 +242,11 @@ function App(): React.JSX.Element {
 
     return (
       <div className="flex flex-col h-screen bg-neutral-900 text-neutral-300">
-        <TitleBar projectName="DevFloat" onSelectProject={handleSelectProject} />
+        <TitleBar projectName="Press B" onSelectProject={handleSelectProject} />
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-5">
           <div className="w-full max-w-xs draggable-no-drag">
             <div className="text-center mb-5">
-              <p className="text-lg font-semibold text-teal-400">✦ DevFloat</p>
+              <p className="text-lg font-semibold text-teal-400">✦ Press B</p>
               <p className="text-xs text-neutral-500 mt-1">
                 Your floating task & context layer. Open a project to begin.
               </p>
@@ -295,7 +295,7 @@ function App(): React.JSX.Element {
 
             <p className="text-[10px] text-neutral-600 text-center mt-5">
               Press <span className="font-mono text-neutral-500">Ctrl+Shift+F</span> anywhere to
-              toggle DevFloat.
+              toggle Press B.
             </p>
           </div>
         </div>
@@ -306,7 +306,7 @@ function App(): React.JSX.Element {
   return (
     <div className="flex flex-col h-screen bg-neutral-900 text-neutral-300">
       <TitleBar
-        projectName={projectRoot.split(/[\\/]/).pop() || 'DevFloat'}
+        projectName={projectRoot.split(/[\\/]/).pop() || 'Press B'}
         onSelectProject={handleSelectProject}
         currentRoot={projectRoot}
         recentProjects={recentProjects}

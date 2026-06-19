@@ -99,11 +99,11 @@ export default function TaskForm({ onSubmit, onCancel, initialTask }: TaskFormPr
 
   const handleSelectFile = async () => {
     try {
-      if (!window.devfloat) {
+      if (!window.pressB) {
         console.error('API not available')
         return
       }
-      const file = await window.devfloat.dialog.selectFile()
+      const file = await window.pressB.dialog.selectFile()
       if (file) {
         setLinkedFile(file)
       }

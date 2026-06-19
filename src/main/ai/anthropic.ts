@@ -17,7 +17,7 @@ import {
   SuggestionVolume
 } from './types'
 
-const SYSTEM_PROMPT = `You are DevFloat's session-resume assistant. The developer is returning to a coding project and wants to quickly re-enter their working context.
+const SYSTEM_PROMPT = `You are Press B's session-resume assistant. The developer is returning to a coding project and wants to quickly re-enter their working context.
 
 Given a digest of the project's tasks, notes, and recent activity, write a concise re-entry brief:
 - 3 to 5 sentences summarizing where things stand: what was recently worked on, what's open, what's high-priority or blocking.
@@ -40,7 +40,7 @@ const LENS_DESCRIPTIONS: Record<SuggestionLens, string> = {
   architecture: 'a higher-level structural improvement (module boundaries, separation of concerns)'
 }
 
-const SUGGESTIONS_SYSTEM = `You are DevFloat's suggestion assistant — a restrained senior engineer who proposes high-signal next tasks for a developer's project.
+const SUGGESTIONS_SYSTEM = `You are Press B's suggestion assistant — a restrained senior engineer who proposes high-signal next tasks for a developer's project.
 
 CORE RULES — follow these exactly:
 - Quality over quantity. Returning an EMPTY list is a correct, valued answer when you have nothing sharp to say. Never pad to fill the cap.

@@ -17,18 +17,18 @@ export default function TitleBar({
   onRemoveRecent
 }: TitleBarProps): React.JSX.Element {
   const handleClose = () => {
-    if (window.devfloat?.window?.close) {
-      window.devfloat.window.close()
+    if (window.pressB?.window?.close) {
+      window.pressB.window.close()
     }
   }
 
   const handleSelectFolder = async () => {
     try {
-      if (!window.devfloat) {
+      if (!window.pressB) {
         console.error('API not available')
         return
       }
-      const folder = await window.devfloat.dialog.selectFolder()
+      const folder = await window.pressB.dialog.selectFolder()
       if (folder) {
         onSelectProject(folder)
       }

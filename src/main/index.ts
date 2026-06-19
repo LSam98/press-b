@@ -87,19 +87,19 @@ function toggleWindow(): void {
   else showWindow()
 }
 
-// System-tray icon so DevFloat lives like a real utility (hidden window stays
+// System-tray icon so Press B lives like a real utility (hidden window stays
 // reachable). Reuses the app icon asset.
 function createTray(): void {
   if (tray) return
   const image = nativeImage.createFromPath(icon)
   tray = new Tray(image.isEmpty() ? icon : image)
-  tray.setToolTip('DevFloat')
+  tray.setToolTip('Press B')
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Show / Hide DevFloat', click: () => toggleWindow() },
+      { label: 'Show / Hide Press B', click: () => toggleWindow() },
       { type: 'separator' },
       {
-        label: 'Quit DevFloat',
+        label: 'Quit Press B',
         click: () => {
           isQuitting = true
           app.quit()
@@ -145,7 +145,7 @@ function createWindow(): BrowserWindow {
       if (!hasShownTrayHint && Notification.isSupported()) {
         hasShownTrayHint = true
         new Notification({
-          title: 'DevFloat is still running',
+          title: 'Press B is still running',
           body: 'It’s tucked in the system tray. Click the tray icon or press Ctrl+Shift+F to bring it back.'
         }).show()
       }
@@ -188,7 +188,7 @@ app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.devfloat')
+  electronApp.setAppUserModelId('com.pressb.app')
 
   // Optimize window handling
   app.on('browser-window-created', (_, window) => {
@@ -248,7 +248,7 @@ app.on('window-all-closed', () => {
 
 // Helper: Get project config directory
 function getConfigDir(): string {
-  return path.join(app.getPath('userData'), 'devfloat-config')
+  return path.join(app.getPath('userData'), 'press-b-config')
 }
 
 const RECENTS_CAP = 8
@@ -292,9 +292,21 @@ function pushRecent(recents: string[], root: string): string[] {
   return [root, ...recents.filter((r) => normalizeRoot(r) !== norm)].slice(0, RECENTS_CAP)
 }
 
-// Helper: Get .devfloat.json path for a project
+// Helper: Get the project's Press B data file (.pressb.json), migrating the
+// legacy DevFloat data file (.devfloat.json) forward on first access so existing
+// projects keep their tasks/notes after the rename.
 function getTasksFilePath(projectRoot: string): string {
-  return path.join(projectRoot, '.devfloat.json')
+  const file = path.join(projectRoot, '.pressb.json')
+  const legacy = path.join(projectRoot, '.devfloat.json')
+  if (!fs.existsSync(file) && fs.existsSync(legacy)) {
+    try {
+      fs.renameSync(legacy, file)
+      console.log(`Migrated legacy data file: ${legacy} -> ${file}`)
+    } catch (e) {
+      console.warn('Could not migrate legacy .devfloat.json:', e)
+    }
+  }
+  return file
 }
 
 // Helper: Detect TODO/REFACTOR comments in a file
@@ -352,7 +364,7 @@ function createTaskFromComment(
   }
 }
 
-// Load tasks from .devfloat.json
+// Load tasks from .pressb.json
 ipcMain.handle('storage:load', async (_event, projectRoot: string) => {
   try {
     const tasksFile = getTasksFilePath(projectRoot)
@@ -379,7 +391,7 @@ ipcMain.handle('storage:load', async (_event, projectRoot: string) => {
   }
 }); // End of storage:load handler
 
-// Save tasks to .devfloat.json
+// Save tasks to .pressb.json
 ipcMain.handle('storage:save', async (_event, projectRoot: string, data: unknown) => {
   try {
     const tasksFile = getTasksFilePath(projectRoot)
@@ -550,7 +562,7 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
     const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(base, filePath)
     const line = lineNumber || 1
 
-    // Read preferredIDE from the active project's .devfloat.json
+    // Read preferredIDE from the active project's .pressb.json
     let preferredIDE = 'vscode' // Default fallback
     try {
       if (currentProjectRoot) {
