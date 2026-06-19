@@ -4,7 +4,7 @@
   "description": "Press B — a floating companion that holds a project's working state (tasks, notes, code anchors) and helps you recall it, with an AI re-entry brief and on-demand suggestions.",
   "main": "./out/main/index.js",
   "author": "LSam98",
-  "homepage": "https://github.com/",
+  "homepage": "https://github.com/LSam98/press-b",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
