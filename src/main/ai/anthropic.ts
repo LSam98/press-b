@@ -49,7 +49,7 @@ CORE RULES — follow these exactly:
 - Each suggestion is a concrete, actionable task with a short, specific title.
 - For each, give a one-sentence "reasoning" that references something real in the digest (a task, note, file, or pattern), and an honest confidence level.
 
-The digest surfaces each task's location as "[file:line]" and may include a "LINKED CODE SNIPPETS" section showing the exact relative path and code. When — and ONLY when — your suggestion is anchored to a specific code location that appears in the digest, include "linkedFile" (the exact relative path as shown, e.g. "src/App.tsx") and "linkedLine" (the integer line number) so the user can jump straight to it. If the suggestion is general or you are unsure of the location, OMIT both fields entirely. Never invent a path or line.
+The digest surfaces each task's location as "[file:line]" and may include a "LINKED CODE SNIPPETS" section showing the exact relative path and code. When — and ONLY when — your suggestion is anchored to a specific code location that appears in the digest, include "linkedFile" (the exact relative path as shown, e.g. "src/App.tsx") and "linkedLine" (the integer line number) so the user can jump straight to it. If your suggestion builds on or refines an existing task that already shows a "[file:line]", reuse that exact location. If the suggestion is general or you are unsure of the location, OMIT both fields entirely. Never invent a path or line.
 
 You will be told which LENSES to focus on and the MAXIMUM number of suggestions. Respect both.
 

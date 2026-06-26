@@ -1,4 +1,5 @@
 import { Suggestion, SuggestionLens } from '../types'
+import FileLink from './FileLink'
 
 interface SuggestionsPanelProps {
   hasKey: boolean
@@ -43,6 +44,9 @@ function SuggestionCard({
         <span className="text-[10px] text-neutral-500">
           {suggestion.taskType} · {suggestion.priority}
         </span>
+        {suggestion.linkedFile && (
+          <FileLink file={suggestion.linkedFile} line={suggestion.linkedLine} />
+        )}
         <span className={`text-[10px] ml-auto ${CONFIDENCE_COLOR[suggestion.confidence]}`}>
           {suggestion.confidence} confidence
         </span>

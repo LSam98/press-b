@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Task, TaskType } from '../types'
 import TaskForm from './TaskForm'
+import FileLink from './FileLink'
 
 interface TaskItemProps {
   task: Task
@@ -20,13 +21,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   high: 'text-red-400',
   medium: 'text-yellow-400',
   low: 'text-green-400'
-}
-
-// Helper: Format file path to show last two segments (folder/filename)
-function formatFilePath(filePath: string): string {
-  const separator = filePath.includes('\\') ? '\\' : '/'
-  const parts = filePath.split(separator)
-  return parts.length >= 2 ? parts.slice(-2).join('/') : parts[parts.length - 1] || filePath
 }
 
 export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: TaskItemProps): React.JSX.Element {
@@ -63,15 +57,6 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
     setTimeout(() => onDelete(task.id), 300)
   }
 
-  const handleOpenLinkedFile = async () => {
-    if (!task.linkedFile || !window.pressB) return
-    try {
-      await window.pressB.shell.openFile(task.linkedFile, task.linkedLine)
-    } catch (error) {
-      console.error('Error opening file:', error)
-    }
-  }
-
   const hasDetails = !!task.body || (task.tags && task.tags.length > 0)
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -100,19 +85,7 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
           </span>
           <span className={`text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
 
-          {task.linkedFile && (
-            <button
-              onClick={handleOpenLinkedFile}
-              className="text-xs text-blue-300 bg-blue-900 px-2 py-0.5 rounded border border-blue-700 flex items-center gap-1 hover:bg-blue-800 hover:text-blue-200 transition cursor-pointer"
-              title={`Open ${task.linkedFile}:${task.linkedLine || 1} in IDE`}
-            >
-              <span>🔗</span>
-              <span className="truncate max-w-[140px]">
-                {formatFilePath(task.linkedFile)}
-                {task.linkedLine ? `:${task.linkedLine}` : ''}
-              </span>
-            </button>
-          )}
+          {task.linkedFile && <FileLink file={task.linkedFile} line={task.linkedLine} />}
 
           {task.status === 'done' && <span className="text-xs text-neutral-500 line-through">Done</span>}
         </div>

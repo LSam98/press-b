@@ -134,6 +134,35 @@ function createWindow(): BrowserWindow {
     mainWindow.show()
   })
 
+  // Keep the window above other windows on EVERY display. The constructor's
+  // `alwaysOnTop: true` uses the default "floating" level, which loses to
+  // fullscreen apps and gets unreliable when the window is dragged to a second
+  // monitor (the reported HDMI bug). Bumping to the higher "screen-saver" level
+  // and re-asserting it on display/move events keeps it on top everywhere.
+  const reassertAlwaysOnTop = (): void => {
+    if (!mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(true, 'screen-saver')
+  }
+  reassertAlwaysOnTop()
+
+  let moveDebounce: NodeJS.Timeout | null = null
+  const onMoved = (): void => {
+    if (moveDebounce) clearTimeout(moveDebounce)
+    moveDebounce = setTimeout(reassertAlwaysOnTop, 150)
+  }
+  mainWindow.on('moved', onMoved)
+  mainWindow.on('show', reassertAlwaysOnTop)
+  screen.on('display-metrics-changed', reassertAlwaysOnTop)
+  screen.on('display-added', reassertAlwaysOnTop)
+  screen.on('display-removed', reassertAlwaysOnTop)
+
+  // Avoid leaking the screen listeners when the window is actually destroyed.
+  mainWindow.on('closed', () => {
+    if (moveDebounce) clearTimeout(moveDebounce)
+    screen.removeListener('display-metrics-changed', reassertAlwaysOnTop)
+    screen.removeListener('display-added', reassertAlwaysOnTop)
+    screen.removeListener('display-removed', reassertAlwaysOnTop)
+  })
+
   // Close-to-tray: the X (and renderer close button) hide the window instead of
   // quitting. Real quit happens via the tray menu or Cmd+Q (which set isQuitting).
   mainWindow.on('close', (e) => {
