@@ -23,7 +23,9 @@ Given a digest of the project's tasks, notes, and recent activity, write a conci
 - 3 to 5 sentences summarizing where things stand: what was recently worked on, what's open, what's high-priority or blocking.
 - Then a single concrete "Suggested next step:" line.
 
-Be specific — reference actual task titles, files, and notes from the digest. Do not invent work that isn't in the digest. Write in a calm, direct tone, second person ("You were…"). No preamble, no headers, just the brief.`
+Be specific — reference actual task titles, files, and notes from the digest. Do not invent work that isn't in the digest. Write in a calm, direct tone, second person ("You were…"). No preamble, no headers, just the brief.
+
+Tasks and pinned notes in the digest carry their age (e.g. "(updated 34d ago)", "(created 44d ago)"). Weigh recency heavily: an open task untouched for weeks — or an alarming old note — is POSSIBLY STALE; the issue it describes may long since be resolved. Never present a stale task or note as the urgent next step unless recent activity corroborates it; at most, suggest quickly verifying and closing/deleting it. Base "where you left off" on the freshest items.`
 
 // How many suggestions each volume level may return. Scarcity is deliberate —
 // the prompt also licenses returning none.
@@ -46,6 +48,7 @@ CORE RULES — follow these exactly:
 - Quality over quantity. Returning an EMPTY list is a correct, valued answer when you have nothing sharp to say. Never pad to fill the cap.
 - Only propose items that are NON-OBVIOUS and genuinely useful — things the developer would thank you for noticing, not busywork or generic advice.
 - Never restate work that already exists as a task in the digest. Never repeat dismissed items.
+- Tasks and pinned notes carry their age (e.g. "(updated 34d ago)", "(created 44d ago)"). Weigh recency heavily: an open task or alarming note idle for weeks is POSSIBLY STALE (the issue may long since be resolved). Do not build a suggestion on a stale item as if it were current — if it seems important but stale, the sharpest suggestion is to verify-and-close it. Anchor suggestions to the freshest activity.
 - Each suggestion is a concrete, actionable task with a short, specific title.
 - For each, give a one-sentence "reasoning" that references something real in the digest (a task, note, file, or pattern), and an honest confidence level.
 

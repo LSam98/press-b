@@ -39,6 +39,7 @@ function App(): React.JSX.Element {
     addTask,
     updateTask,
     deleteTask,
+    deleteTasks,
     toggleStatus,
     saveOpacity,
     saveIDE,
@@ -365,6 +366,7 @@ function App(): React.JSX.Element {
             onAddTask={addTask}
             onUpdateTask={updateTask}
             onDeleteTask={deleteTask}
+            onDeleteTasks={deleteTasks}
             onToggleStatus={toggleStatus}
           />
         )}

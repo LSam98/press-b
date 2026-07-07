@@ -1,6 +1,6 @@
 {
   "name": "press-b",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Press B — a floating companion that holds a project's working state (tasks, notes, code anchors) and helps you recall it, with an AI re-entry brief and on-demand suggestions.",
   "main": "./out/main/index.js",
   "author": "LSam98",

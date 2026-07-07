@@ -213,6 +213,15 @@ app.on('before-quit', () => {
   isQuitting = true
 })
 
+// Terminal interrupts (Ctrl+C on the dev server, SIGTERM) must fully quit too —
+// otherwise close-to-tray leaves an orphaned Press B lingering in the tray.
+const quitFromSignal = (): void => {
+  isQuitting = true
+  app.quit()
+}
+process.on('SIGINT', quitFromSignal)
+process.on('SIGTERM', quitFromSignal)
+
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
 
@@ -339,6 +348,50 @@ function getTasksFilePath(projectRoot: string): string {
 }
 
 // Helper: Detect TODO/REFACTOR comments in a file
+// Directories the watcher must never scan: build outputs, caches, vendored deps.
+// NOTE: keep in sync with BUILD_ARTIFACT_DIRS in src/renderer/src/components/TaskList.tsx
+// (separate bundle — used there to offer cleanup of tasks already linked into these dirs).
+const IGNORED_DIR_NAMES = [
+  'node_modules',
+  'dist',
+  'out',
+  'build',
+  'coverage',
+  'target',
+  '__pycache__',
+  'venv',
+  'vendor',
+  'bin',
+  'obj'
+]
+// Separator-anchored so directory NAMES match, not substrings (e.g. "checkout.ts" is safe from "out").
+// Also ignores any dot-directory/file segment (.git, .idea, .vscode, .venv, ...).
+const WATCHER_IGNORED = new RegExp(`(^|[\\/\\\\])(\\.[^\\/\\\\]+|${IGNORED_DIR_NAMES.join('|')})([\\/\\\\]|$)`)
+
+// Only read real source/text files — never binaries (the old behavior read EVERY
+// file as UTF-8, including 200MB .exe build outputs).
+const SOURCE_EXTENSIONS = new Set([
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  '.py', '.java', '.kt', '.kts',
+  '.c', '.h', '.cpp', '.hpp', '.cc',
+  '.cs', '.go', '.rb', '.rs', '.php', '.swift',
+  '.sql', '.lua', '.sh', '.ps1', '.bat',
+  '.html', '.css', '.scss', '.vue', '.svelte',
+  '.yml', '.yaml', '.toml', '.md'
+])
+const MAX_SCAN_FILE_BYTES = 1.5 * 1024 * 1024 // backstop: skip anything over ~1.5MB
+
+// Gate every candidate file before it's ever read.
+function isScannableSourceFile(filePath: string): boolean {
+  if (!SOURCE_EXTENSIONS.has(path.extname(filePath).toLowerCase())) return false
+  try {
+    if (fs.statSync(filePath).size > MAX_SCAN_FILE_BYTES) return false
+  } catch {
+    return false
+  }
+  return true
+}
+
 function detectCommentsInFile(
   filePath: string
 ): Array<{ type: 'TODO' | 'REFACTOR'; title: string; line: number }> {
@@ -346,8 +399,11 @@ function detectCommentsInFile(
     const content = fs.readFileSync(filePath, 'utf-8')
     const lines = content.split('\n')
     const matches: Array<{ type: 'TODO' | 'REFACTOR'; title: string; line: number }> = []
-    // Matches: // TODO:  /* TODO:  # TODO:  -- TODO:  * TODO:  (covers JS/TS, Python, SQL, Lua, etc.)
-    const regex = /\s*(\/\/|\/\*|\*|#|--)\s*(TODO|REFACTOR):\s*(.+)/i
+    // Matches comments that START a line (any indentation): JS/TS, Python, SQL, Lua styles.
+    // Anchored to ^ on purpose — mid-line mentions of the pattern (e.g. UI help text or
+    // docs *about* TODO comments) must not become tasks. Tradeoff: trailing comments
+    // after code on the same line are not captured; precision over recall.
+    const regex = /^\s*(\/\/|\/\*|\*|#|--)\s*(TODO|REFACTOR):\s*(.+)/i
 
     lines.forEach((line, index) => {
       const match = line.match(regex)
@@ -389,7 +445,8 @@ function createTaskFromComment(
     createdAt: now,
     updatedAt: now,
     linkedFile: relativeFilePath,
-    linkedLine: lineNumber
+    linkedLine: lineNumber,
+    tags: ['auto'] // marks watcher-detected tasks (vs manually created)
   }
 }
 
@@ -862,14 +919,15 @@ ipcMain.handle('watcher:start', async (_event, projectRoot: string) => {
     const initialFiles: string[] = []
 
     fileWatcher = watch(projectRoot, {
-      ignored: /(^|[\/\\])\.|node_modules|\.git/,
+      ignored: WATCHER_IGNORED, // build outputs, caches, vendored deps, dot-dirs
       persistent: true,
       depth: 10
     })
 
-    // Chokidar emits 'add' for every existing file during startup crawl
+    // Chokidar emits 'add' for every existing file during startup crawl.
+    // Gate here so binaries/oversized files are never read at all.
     fileWatcher.on('add', (filePath) => {
-      initialFiles.push(filePath)
+      if (isScannableSourceFile(filePath)) initialFiles.push(filePath)
     })
 
     // After the initial crawl is complete, scan all discovered files at once
@@ -894,6 +952,7 @@ ipcMain.handle('watcher:start', async (_event, projectRoot: string) => {
 
     // Handle ongoing file changes after startup
     fileWatcher.on('change', (filePath) => {
+      if (!isScannableSourceFile(filePath)) return
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(async () => {
         try {

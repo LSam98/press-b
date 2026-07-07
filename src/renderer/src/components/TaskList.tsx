@@ -5,11 +5,37 @@ import TaskItem from './TaskItem'
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 }
 
+// Build-output / cache dirs the watcher no longer scans (since v1.4.1).
+// NOTE: keep in sync with IGNORED_DIR_NAMES in src/main/index.ts (separate bundle).
+// Used to offer cleanup of legacy tasks that were auto-created from these dirs.
+const BUILD_ARTIFACT_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'out',
+  'build',
+  'coverage',
+  'target',
+  '__pycache__',
+  'venv',
+  'vendor',
+  'bin',
+  'obj'
+])
+
+// True when a task's linked path lives inside a build-artifact dir (any segment
+// matches — dist\win-unpacked\... etc). Paths here are project-relative.
+function isBuildArtifactPath(relPath: string): boolean {
+  return relPath
+    .split(/[\\/]/)
+    .some((segment) => BUILD_ARTIFACT_DIRS.has(segment.toLowerCase()))
+}
+
 interface TaskListProps {
   tasks: Task[]
   onAddTask: (task: Task) => void
   onUpdateTask: (task: Task) => void
   onDeleteTask: (id: string) => void
+  onDeleteTasks: (ids: string[]) => void
   onToggleStatus: (id: string) => void
 }
 
@@ -20,6 +46,7 @@ export default function TaskList({
   onAddTask,
   onUpdateTask,
   onDeleteTask,
+  onDeleteTasks,
   onToggleStatus
 }: TaskListProps): React.JSX.Element {
   const [showForm, setShowForm] = useState(false)
@@ -27,6 +54,11 @@ export default function TaskList({
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'done'>('all')
   const [linkedFileFilter, setLinkedFileFilter] = useState('')
   const [activeTagFilter, setActiveTagFilter] = useState('')
+  const [noiseDismissed, setNoiseDismissed] = useState(false) // session-only "Keep"
+
+  // Legacy noise: tasks linked into build-artifact dirs (created before the
+  // watcher excluded them). Offered for one-click cleanup — never auto-deleted.
+  const noiseTasks = tasks.filter((t) => t.linkedFile && isBuildArtifactPath(t.linkedFile))
 
   // Apply filters then sort open tasks by priority (high → medium → low)
   const filteredTasks = tasks.filter((task) => {
@@ -82,6 +114,28 @@ export default function TaskList({
         >
           + New Task
         </button>
+      )}
+
+      {/* Cleanup banner — legacy tasks auto-created from build outputs (dist/, out/…) */}
+      {noiseTasks.length > 0 && !noiseDismissed && (
+        <div className="flex-shrink-0 mx-3 mb-2 p-2 bg-amber-950/60 border border-amber-700/50 rounded flex items-center gap-2">
+          <p className="flex-1 text-xs text-amber-200">
+            {noiseTasks.length} task{noiseTasks.length === 1 ? '' : 's'} link to build artifacts
+            (dist/, out/…) — likely watcher noise.
+          </p>
+          <button
+            onClick={() => onDeleteTasks(noiseTasks.map((t) => t.id))}
+            className="text-xs px-2 py-0.5 bg-amber-600 text-white rounded hover:bg-amber-500 transition cursor-pointer font-medium"
+          >
+            Clean up
+          </button>
+          <button
+            onClick={() => setNoiseDismissed(true)}
+            className="text-xs px-2 py-0.5 text-neutral-400 hover:text-neutral-200 transition cursor-pointer"
+          >
+            Keep
+          </button>
+        </div>
       )}
 
       {/* Filter Section */}

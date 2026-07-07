@@ -326,7 +326,7 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">About</h3>
         <div className="text-xs text-neutral-400 space-y-1">
           <p>
-            <span className="font-semibold">Press B</span> v1.4.0
+            <span className="font-semibold">Press B</span> v1.4.1
           </p>
           <p>A floating task and context layer for developers.</p>
         </div>

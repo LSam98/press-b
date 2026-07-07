@@ -41,6 +41,19 @@ function readSnippet(projectRoot: string, relFile: string, line: number): string
   }
 }
 
+// Compact relative age for the digest ("2h ago", "34d ago") so the model can
+// tell fresh work from tasks that have been idle for weeks (staleness signal).
+function formatAge(iso?: string): string {
+  if (!iso) return ''
+  const ms = Date.now() - new Date(iso).getTime()
+  if (Number.isNaN(ms) || ms < 0) return ''
+  const mins = Math.floor(ms / 60000)
+  if (mins < 60) return 'under 1h ago'
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
 export function buildProjectDigest(projectRoot: string, scope: PrivacyScope): ProjectDigest {
   // Read the Press B data file; fall back to the legacy .devfloat.json if a
   // project hasn't been migrated yet (storage:load migrates it on first open).
@@ -50,7 +63,11 @@ export function buildProjectDigest(projectRoot: string, scope: PrivacyScope): Pr
     if (fs.existsSync(legacy)) tasksFile = legacy
   }
 
-  let data: { project?: string; tasks?: RawTask[]; pinnedNotes?: Array<{ title: string; content: string }> } = {}
+  let data: {
+    project?: string
+    tasks?: RawTask[]
+    pinnedNotes?: Array<{ title: string; content: string; createdAt?: string }>
+  } = {}
   if (fs.existsSync(tasksFile)) {
     try {
       data = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'))
@@ -85,7 +102,9 @@ export function buildProjectDigest(projectRoot: string, scope: PrivacyScope): Pr
     for (const t of recent) {
       const loc = t.linkedFile ? ` [${t.linkedFile}${t.linkedLine ? ':' + t.linkedLine : ''}]` : ''
       const tags = t.tags && t.tags.length ? ` #${t.tags.join(' #')}` : ''
-      lines.push(`  - [${t.type}/${t.priority}/${t.status}] ${t.title}${loc}${tags}`)
+      const age = formatAge(t.updatedAt)
+      const ageStr = age ? ` (updated ${age})` : ''
+      lines.push(`  - [${t.type}/${t.priority}/${t.status}] ${t.title}${loc}${tags}${ageStr}`)
       if (t.body) lines.push(`      note: ${t.body}`)
     }
   }
@@ -96,7 +115,8 @@ export function buildProjectDigest(projectRoot: string, scope: PrivacyScope): Pr
     lines.push('  (none)')
   } else {
     for (const n of notes) {
-      lines.push(`  - ${n.title}: ${n.content}`)
+      const age = formatAge(n.createdAt)
+      lines.push(`  - ${n.title}: ${n.content}${age ? ` (created ${age})` : ''}`)
     }
   }
 

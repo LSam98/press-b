@@ -80,6 +80,17 @@ export function useTasks(projectRoot: string | null) {
     [tasks, saveTasks]
   )
 
+  // Bulk delete — one load→filter→save. (Calling deleteTask in a loop would
+  // race: each call does its own load/save round-trip against stale state.)
+  const deleteTasks = useCallback(
+    (ids: string[]) => {
+      const remove = new Set(ids)
+      const newTasks = tasks.filter((t) => !remove.has(t.id))
+      saveTasks(newTasks)
+    },
+    [tasks, saveTasks]
+  )
+
   // Toggle task status
   const toggleStatus = useCallback(
     (id: string) => {
@@ -245,6 +256,7 @@ export function useTasks(projectRoot: string | null) {
     addTask,
     updateTask,
     deleteTask,
+    deleteTasks,
     toggleStatus,
     saveOpacity,
     saveIDE,
