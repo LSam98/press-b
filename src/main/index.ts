@@ -22,9 +22,10 @@ import { watch } from 'chokidar'
 import * as keyStore from './ai/keyStore'
 import * as briefStore from './ai/briefStore'
 import * as suggestionStore from './ai/suggestionStore'
+import * as chatStore from './ai/chatStore'
 import { buildProjectDigest } from './ai/context'
 import { AnthropicProvider, describeAIError } from './ai/anthropic'
-import { PrivacyScope, SuggestionVolume, SuggestionLens } from './ai/types'
+import { PrivacyScope, SuggestionVolume, SuggestionLens, ChatMessage } from './ai/types'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null // module scope so it isn't garbage-collected
@@ -1118,5 +1119,74 @@ ipcMain.handle('ai:generateSuggestions', async (_event, projectRoot: string) => 
 // Remember a dismissed suggestion so it isn't proposed again
 ipcMain.handle('ai:dismissSuggestion', async (_event, projectRoot: string, title: string) => {
   if (projectRoot && title) suggestionStore.addDismissed(projectRoot, title)
+  return { success: true }
+})
+
+// How many prior turns ride along on each Ask call (cost hygiene — the full
+// stored history stays in chatStore; only the tail is sent to the model).
+const ASK_HISTORY_CAP = 12
+
+// Project-aware Ask (Pillar 3): streams deltas to the renderer via ai:askChunk
+// events; the invoke resolves with the authoritative full answer.
+ipcMain.handle('ai:ask', async (_event, projectRoot: string, question: string) => {
+  const apiKey = keyStore.getKey()
+  if (!apiKey) {
+    return { success: false, error: 'No API key set. Add your Anthropic key in Settings.' }
+  }
+  if (!projectRoot || !question?.trim()) {
+    return { success: false, error: 'No project selected or empty question.' }
+  }
+
+  try {
+    // Model + privacy scope from the project's settings (same as brief/suggestions)
+    let model = 'claude-sonnet-4-6'
+    let scope: PrivacyScope = 'metadata+snippets'
+    try {
+      const tasksFile = getTasksFilePath(projectRoot)
+      if (fs.existsSync(tasksFile)) {
+        const data = JSON.parse(fs.readFileSync(tasksFile, 'utf-8'))
+        model = data.settings?.aiModel || model
+        scope = data.settings?.aiPrivacyScope || scope
+      }
+    } catch (e) {
+      console.warn('Could not read AI settings, using defaults:', e)
+    }
+
+    const digest = buildProjectDigest(projectRoot, scope)
+    const history: ChatMessage[] = [
+      ...chatStore.getChat(projectRoot).slice(-ASK_HISTORY_CAP),
+      { role: 'user', content: question.trim() }
+    ]
+    console.log(
+      `[ai] Ask — model=${model}, scope=${scope}, historySent=${history.length}, tasks=${digest.taskCount}, snippets=${digest.snippetCount}`
+    )
+
+    const provider = new AnthropicProvider(apiKey)
+    const answer = await provider.ask(digest, { model, history }, (delta) => {
+      mainWindow?.webContents.send('ai:askChunk', { projectRoot, text: delta })
+    })
+
+    // Persist the exchange (store keeps its own cap)
+    chatStore.appendToChat(projectRoot, [
+      { role: 'user', content: question.trim() },
+      { role: 'assistant', content: answer }
+    ])
+
+    return { success: true, answer }
+  } catch (error) {
+    console.error('Error in ai:ask:', error)
+    return { success: false, error: describeAIError(error) }
+  }
+})
+
+// Load the persisted conversation for a project (no API call)
+ipcMain.handle('ai:getChat', async (_event, projectRoot: string) => {
+  if (!projectRoot) return []
+  return chatStore.getChat(projectRoot)
+})
+
+// Clear the persisted conversation ("New chat")
+ipcMain.handle('ai:clearChat', async (_event, projectRoot: string) => {
+  if (projectRoot) chatStore.clearChat(projectRoot)
   return { success: true }
 })

@@ -63,7 +63,12 @@ function App(): React.JSX.Element {
     suggestError,
     generateSuggestions,
     dismissSuggestion,
-    removeSuggestion
+    removeSuggestion,
+    chatMessages,
+    isAsking,
+    askError,
+    ask,
+    clearChat
   } = useAI(projectRoot)
 
   // Accept a suggestion → create a real task, then drop the card
@@ -358,9 +363,12 @@ function App(): React.JSX.Element {
         </button>
       </div>
 
-      {/* Content */}
+      {/* Content — all tabs stay MOUNTED and inactive ones are CSS-hidden, so
+          in-progress state (half-typed Ask questions, note/task drafts, scroll
+          positions, expanded items) survives tab switches. Conditional
+          rendering here used to unmount panels and wipe that state. */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'tasks' && (
+        <div className={activeTab === 'tasks' ? 'h-full' : 'hidden'}>
           <TaskList
             tasks={tasks}
             onAddTask={addTask}
@@ -369,11 +377,11 @@ function App(): React.JSX.Element {
             onDeleteTasks={deleteTasks}
             onToggleStatus={toggleStatus}
           />
-        )}
-        {activeTab === 'notes' && (
+        </div>
+        <div className={activeTab === 'notes' ? 'h-full' : 'hidden'}>
           <PinnedNotes notes={notes} onAddNote={addNote} onUpdateNote={updateNote} onDeleteNote={deleteNote} />
-        )}
-        {activeTab === 'companion' && (
+        </div>
+        <div className={activeTab === 'companion' ? 'h-full' : 'hidden'}>
           <AICompanionPanel
             hasKey={hasKey}
             brief={brief}
@@ -387,10 +395,15 @@ function App(): React.JSX.Element {
             onGenerateSuggestions={generateSuggestions}
             onAcceptSuggestion={handleAcceptSuggestion}
             onDismissSuggestion={dismissSuggestion}
+            chatMessages={chatMessages}
+            isAsking={isAsking}
+            askError={askError}
+            onAsk={ask}
+            onClearChat={clearChat}
             onGoToSettings={() => setActiveTab('settings')}
           />
-        )}
-        {activeTab === 'settings' && (
+        </div>
+        <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}>
           <SettingsPanel
             projectRoot={projectRoot}
             onSelectProject={handleSelectProject}
@@ -426,7 +439,7 @@ function App(): React.JSX.Element {
               await saveAISuggestionLenses(lenses)
             }}
           />
-        )}
+        </div>
       </div>
     </div>
   )

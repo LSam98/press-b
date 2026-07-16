@@ -50,6 +50,17 @@ export interface PressBAPI {
       error?: string
     }>
     dismissSuggestion: (projectRoot: string, title: string) => Promise<{ success: boolean }>
+    ask: (
+      projectRoot: string,
+      question: string
+    ) => Promise<{ success: boolean; answer?: string; error?: string }>
+    getChat: (
+      projectRoot: string
+    ) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>
+    clearChat: (projectRoot: string) => Promise<{ success: boolean }>
+    onAskChunk: (
+      callback: (chunk: { projectRoot: string; text: string }) => void
+    ) => () => void
   }
   onTasksUpdated: (callback: () => void) => () => void
 }

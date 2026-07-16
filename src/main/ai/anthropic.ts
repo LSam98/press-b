@@ -9,6 +9,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import * as path from 'path'
 import {
   AIProvider,
+  AskOptions,
+  ChatMessage,
   GenerateBriefOptions,
   GenerateSuggestionsOptions,
   ProjectDigest,
@@ -26,6 +28,17 @@ Given a digest of the project's tasks, notes, and recent activity, write a conci
 Be specific — reference actual task titles, files, and notes from the digest. Do not invent work that isn't in the digest. Write in a calm, direct tone, second person ("You were…"). No preamble, no headers, just the brief.
 
 Tasks and pinned notes in the digest carry their age (e.g. "(updated 34d ago)", "(created 44d ago)"). Weigh recency heavily: an open task untouched for weeks — or an alarming old note — is POSSIBLY STALE; the issue it describes may long since be resolved. Never present a stale task or note as the urgent next step unless recent activity corroborates it; at most, suggest quickly verifying and closing/deleting it. Base "where you left off" on the freshest items.`
+
+const ASK_SYSTEM = `You are Press B's project assistant. Press B is a floating companion that holds a developer's working state for one project — tasks (with priority/status/age and code locations), pinned notes, and recent activity. The developer chats with you to interrogate that state and to get help while working.
+
+How to answer:
+- Ground answers in the PROJECT DIGEST whenever the question touches the project: cite actual task titles, notes, and files. Never invent tasks, notes, or paths that aren't in the digest.
+- When you reference a specific code location THAT APPEARS IN THE DIGEST, cite it exactly as [relative/path.ts:123] (square brackets, relative path, optional :line). The app renders these as clickable links into the editor. Never fabricate a citation.
+- Items carry their age (e.g. "(updated 34d ago)"). Weigh recency: weeks-idle open items are possibly stale — say so rather than treating them as current.
+- General programming questions are fine too — answer them directly; use project context only when it's actually relevant.
+- Be concise and direct: short paragraphs or tight bullet lists, no filler, no restating the question. This renders in a narrow 380px panel.
+- PLAIN TEXT ONLY — your answer is rendered verbatim, not as markdown. No **bold**, no # headers, no backticks, no markdown links. Use plain sentences, simple "-" bullets, and blank lines for structure. The ONLY bracket syntax allowed is the [path:line] citation format above.
+- If the digest genuinely doesn't contain what's asked ("what did I name that branch?"), say so plainly instead of guessing.`
 
 // How many suggestions each volume level may return. Scarcity is deliberate —
 // the prompt also licenses returning none.
@@ -174,6 +187,40 @@ export class AnthropicProvider implements AIProvider {
       .filter((s) => lenses.includes(s.lens))
       .slice(0, cap)
       .map(sanitizeLink)
+  }
+
+  // Project-aware chat (Pillar 3). Streams text deltas via onText; resolves with
+  // the full answer. The digest rides as the cached system block (stable prefix),
+  // so multi-turn follow-ups reuse the cache and only the conversation grows.
+  async ask(
+    digest: ProjectDigest,
+    opts: AskOptions,
+    onText: (delta: string) => void
+  ): Promise<string> {
+    const messages: ChatMessage[] = opts.history.filter((m) => m.content.trim() !== '')
+
+    const stream = this.client.messages.stream({
+      model: opts.model,
+      max_tokens: 2048,
+      system: [
+        { type: 'text', text: ASK_SYSTEM },
+        {
+          type: 'text',
+          text: `PROJECT DIGEST:\n${digest.text}`,
+          cache_control: { type: 'ephemeral' }
+        }
+      ],
+      messages
+    })
+
+    stream.on('text', (delta) => onText(delta))
+
+    const final = await stream.finalMessage()
+    return final.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+      .trim()
   }
 }
 

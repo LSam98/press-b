@@ -1,6 +1,7 @@
 import ReentryBrief from './ReentryBrief'
 import SuggestionsPanel from './SuggestionsPanel'
-import { Suggestion } from '../types'
+import AskPanel from './AskPanel'
+import { Suggestion, ChatMessage } from '../types'
 
 interface AICompanionPanelProps {
   hasKey: boolean
@@ -17,12 +18,19 @@ interface AICompanionPanelProps {
   onGenerateSuggestions: () => void
   onAcceptSuggestion: (s: Suggestion) => void
   onDismissSuggestion: (s: Suggestion) => void
+  // Ask
+  chatMessages: ChatMessage[]
+  isAsking: boolean
+  askError: string | null
+  onAsk: (question: string) => void
+  onClearChat: () => void
   // Nav
   onGoToSettings: () => void
 }
 
 // The AI Companion tab — home for everything AI in Press B. Re-Entry Brief up
-// top (teal), on-demand Suggestions below (amber/yellow).
+// top (teal), on-demand Suggestions below (amber), project-aware Ask at the
+// bottom (violet).
 export default function AICompanionPanel(props: AICompanionPanelProps): React.JSX.Element {
   return (
     <div className="h-full overflow-y-auto">
@@ -43,6 +51,15 @@ export default function AICompanionPanel(props: AICompanionPanelProps): React.JS
         onGenerate={props.onGenerateSuggestions}
         onAccept={props.onAcceptSuggestion}
         onDismiss={props.onDismissSuggestion}
+        onGoToSettings={props.onGoToSettings}
+      />
+      <AskPanel
+        hasKey={props.hasKey}
+        messages={props.chatMessages}
+        isAsking={props.isAsking}
+        error={props.askError}
+        onAsk={props.onAsk}
+        onClear={props.onClearChat}
         onGoToSettings={props.onGoToSettings}
       />
     </div>

@@ -41,7 +41,17 @@ const api = {
     generateSuggestions: (projectRoot: string) =>
       ipcRenderer.invoke('ai:generateSuggestions', projectRoot),
     dismissSuggestion: (projectRoot: string, title: string) =>
-      ipcRenderer.invoke('ai:dismissSuggestion', projectRoot, title)
+      ipcRenderer.invoke('ai:dismissSuggestion', projectRoot, title),
+    ask: (projectRoot: string, question: string) =>
+      ipcRenderer.invoke('ai:ask', projectRoot, question),
+    getChat: (projectRoot: string) => ipcRenderer.invoke('ai:getChat', projectRoot),
+    clearChat: (projectRoot: string) => ipcRenderer.invoke('ai:clearChat', projectRoot),
+    onAskChunk: (callback: (chunk: { projectRoot: string; text: string }) => void) => {
+      const listener = (_event: unknown, chunk: { projectRoot: string; text: string }) =>
+        callback(chunk)
+      ipcRenderer.on('ai:askChunk', listener)
+      return () => ipcRenderer.removeListener('ai:askChunk', listener)
+    }
   },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)

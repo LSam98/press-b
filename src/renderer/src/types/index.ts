@@ -22,6 +22,12 @@ export interface Suggestion {
   linkedLine?: number
 }
 
+// Project-aware Ask (Pillar 3)
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface Task {
   id: string
   type: TaskType

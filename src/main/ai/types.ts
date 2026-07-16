@@ -48,6 +48,19 @@ export interface GenerateSuggestionsOptions {
   dismissed: string[]
 }
 
+// Project-aware Ask (Pillar 3)
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AskOptions {
+  model: string
+  // Prior conversation turns (already capped by the caller); the new question
+  // is the last 'user' entry.
+  history: ChatMessage[]
+}
+
 // First implementation is Anthropic; future providers implement this same shape.
 export interface AIProvider {
   generateBrief(digest: ProjectDigest, opts: GenerateBriefOptions): Promise<string>
@@ -55,4 +68,6 @@ export interface AIProvider {
     digest: ProjectDigest,
     opts: GenerateSuggestionsOptions
   ): Promise<Suggestion[]>
+  // Streams the answer via onText deltas; resolves with the full final text.
+  ask(digest: ProjectDigest, opts: AskOptions, onText: (delta: string) => void): Promise<string>
 }
