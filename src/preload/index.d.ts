@@ -100,9 +100,7 @@ export interface PressBAPI {
       projectRoot: string
     ) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>
     clearChat: (projectRoot: string) => Promise<{ success: boolean }>
-    onAskChunk: (
-      callback: (chunk: { projectRoot: string; text: string }) => void
-    ) => () => void
+    onAskChunk: (callback: (chunk: { projectRoot: string; text: string }) => void) => () => void
   }
   deeplink: {
     getPending: () => Promise<DeepLinkPayload | null>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Suggestion, ChatMessage } from '../types'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- returns a large object literal; inferred on purpose
 export function useAI(projectRoot: string | null) {
   const [hasKey, setHasKey] = useState(false)
   const [brief, setBrief] = useState<string | null>(null)
@@ -29,12 +30,14 @@ export function useAI(projectRoot: string | null) {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting/loading state when the project changes
     refreshKeyStatus()
   }, [refreshKeyStatus])
 
   // Load the last persisted brief when the project changes (no API call).
   useEffect(() => {
     if (!projectRoot) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting/loading state when the project changes
       setBrief(null)
       setGeneratedAt(null)
       return
@@ -85,6 +88,7 @@ export function useAI(projectRoot: string | null) {
 
   // Clear suggestions when the project changes (they're project-specific & on-demand)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting/loading state when the project changes
     setSuggestions(null)
     setSuggestError(null)
   }, [projectRoot])
@@ -128,6 +132,7 @@ export function useAI(projectRoot: string | null) {
 
   // Load the persisted conversation when the project changes (no API call)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting/loading state when the project changes
     setAskError(null)
     if (!projectRoot) {
       setChatMessages([])
@@ -186,7 +191,9 @@ export function useAI(projectRoot: string | null) {
           setAskError(result.error || 'Failed to get an answer.')
           // Drop the empty streaming placeholder; keep the user's question visible
           setChatMessages((prev) =>
-            prev.length && prev[prev.length - 1].role === 'assistant' && prev[prev.length - 1].content === ''
+            prev.length &&
+            prev[prev.length - 1].role === 'assistant' &&
+            prev[prev.length - 1].content === ''
               ? prev.slice(0, -1)
               : prev
           )

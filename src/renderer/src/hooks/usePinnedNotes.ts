@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PinnedNote, PressBData } from '../types'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- returns a large object literal; inferred on purpose
 export function usePinnedNotes(projectRoot: string | null) {
   const [notes, setNotes] = useState<PinnedNote[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -43,6 +44,7 @@ export function usePinnedNotes(projectRoot: string | null) {
 
   // Load notes on mount or when projectRoot changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading data when the project changes
     loadNotes()
   }, [loadNotes])
 

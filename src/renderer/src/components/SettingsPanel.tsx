@@ -61,19 +61,18 @@ export default function SettingsPanel({
   const [aiLenses, setAiLenses] = useState<SuggestionLens[]>(initialAILenses)
 
   const toggleLens = async (lens: SuggestionLens): Promise<void> => {
-    const next = aiLenses.includes(lens)
-      ? aiLenses.filter((l) => l !== lens)
-      : [...aiLenses, lens]
+    const next = aiLenses.includes(lens) ? aiLenses.filter((l) => l !== lens) : [...aiLenses, lens]
     setAiLenses(next)
     if (onAILensesChange) await onAILensesChange(next)
   }
 
   useEffect(() => {
     // Load initial opacity from props
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state when the saved value loads
     setOpacity(initialOpacity)
   }, [initialOpacity])
 
-  const handleOpacityChange = async (value: number) => {
+  const handleOpacityChange = async (value: number): Promise<void> => {
     setOpacity(value)
     try {
       if (!window.pressB) {
@@ -90,7 +89,7 @@ export default function SettingsPanel({
     }
   }
 
-  const handleSelectFolder = async () => {
+  const handleSelectFolder = async (): Promise<void> => {
     try {
       if (!window.pressB) {
         console.error('API not available')
@@ -105,7 +104,7 @@ export default function SettingsPanel({
     }
   }
 
-  const handleWatcherToggle = async (enabled: boolean) => {
+  const handleWatcherToggle = async (enabled: boolean): Promise<void> => {
     setWatcherEnabled(enabled)
     if (onWatcherToggle) {
       try {
@@ -117,7 +116,7 @@ export default function SettingsPanel({
     }
   }
 
-  const handleSaveKey = async () => {
+  const handleSaveKey = async (): Promise<void> => {
     if (!onSaveKey) return
     try {
       await onSaveKey(apiKeyInput.trim())
@@ -135,7 +134,9 @@ export default function SettingsPanel({
       <div>
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">Project Root</h3>
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-neutral-400 break-all bg-neutral-800 p-2 rounded">{projectRoot}</p>
+          <p className="text-xs text-neutral-400 break-all bg-neutral-800 p-2 rounded">
+            {projectRoot}
+          </p>
           <button
             onClick={handleSelectFolder}
             className="draggable-no-drag px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition cursor-pointer"
@@ -161,7 +162,9 @@ export default function SettingsPanel({
             }}
             className="flex-1 h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer"
           />
-          <span className="text-xs text-neutral-400 w-8 text-right">{Math.round(opacity * 100)}%</span>
+          <span className="text-xs text-neutral-400 w-8 text-right">
+            {Math.round(opacity * 100)}%
+          </span>
         </div>
       </div>
 
@@ -202,7 +205,8 @@ export default function SettingsPanel({
             className="w-4 h-4 rounded cursor-pointer"
           />
           <span className="text-sm text-neutral-300">
-            Watch project files for TODO/REFACTOR comments {watcherEnabled ? '(watching)' : '(stopped)'}
+            Watch project files for TODO/REFACTOR comments{' '}
+            {watcherEnabled ? '(watching)' : '(stopped)'}
           </span>
         </label>
         <p className="text-xs text-neutral-400 mt-2">
@@ -213,7 +217,8 @@ export default function SettingsPanel({
       {/* AI Assistant Section */}
       <div>
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">
-          AI Assistant {aiHasKey && <span className="text-xs text-green-400 font-normal">key saved ✓</span>}
+          AI Assistant{' '}
+          {aiHasKey && <span className="text-xs text-green-400 font-normal">key saved ✓</span>}
         </h3>
 
         {/* API Key */}
@@ -307,8 +312,8 @@ export default function SettingsPanel({
           ))}
         </div>
         <p className="text-xs text-neutral-500 mt-2">
-          Volume controls how many; lenses control what kind. Suggestions only run when you click
-          in the AI Companion tab.
+          Volume controls how many; lenses control what kind. Suggestions only run when you click in
+          the AI Companion tab.
         </p>
       </div>
 
@@ -317,7 +322,8 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-neutral-200 mb-2">Keyboard Shortcut</h3>
         <p className="text-xs text-neutral-400 bg-neutral-800 p-2 rounded">
           Press <span className="font-mono text-neutral-300">Ctrl+Shift+F</span> (Windows/Linux) or{' '}
-          <span className="font-mono text-neutral-300">Cmd+Shift+F</span> (Mac) to toggle the window visibility.
+          <span className="font-mono text-neutral-300">Cmd+Shift+F</span> (Mac) to toggle the window
+          visibility.
         </p>
       </div>
 

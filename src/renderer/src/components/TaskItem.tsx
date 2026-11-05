@@ -23,7 +23,12 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'text-green-400'
 }
 
-export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: TaskItemProps): React.JSX.Element {
+export default function TaskItem({
+  task,
+  onUpdate,
+  onDelete,
+  onToggleStatus
+}: TaskItemProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -45,14 +50,14 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  const handleStatusToggle = () => {
+  const handleStatusToggle = (): void => {
     setIsTogglingStatus(true)
     onToggleStatus(task.id)
     setTimeout(() => setIsTogglingStatus(false), 600)
   }
 
   // Two-step delete: first click arms confirm UI, second click executes with animation
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = (): void => {
     setIsDeleting(true)
     setTimeout(() => onDelete(task.id), 300)
   }
@@ -80,14 +85,20 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
       <div className="flex-1 min-w-0">
         {/* Badges row */}
         <div className="flex items-start gap-2 mb-1 flex-wrap">
-          <span className={`px-2 py-0.5 text-xs font-medium rounded border ${TASK_TYPE_COLORS[task.type]}`}>
+          <span
+            className={`px-2 py-0.5 text-xs font-medium rounded border ${TASK_TYPE_COLORS[task.type]}`}
+          >
             {task.type}
           </span>
-          <span className={`text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>{task.priority}</span>
+          <span className={`text-xs font-medium ${PRIORITY_COLORS[task.priority]}`}>
+            {task.priority}
+          </span>
 
           {task.linkedFile && <FileLink file={task.linkedFile} line={task.linkedLine} />}
 
-          {task.status === 'done' && <span className="text-xs text-neutral-500 line-through">Done</span>}
+          {task.status === 'done' && (
+            <span className="text-xs text-neutral-500 line-through">Done</span>
+          )}
         </div>
 
         {/* Title — clicking expands details (read-only); does NOT open edit */}
@@ -107,7 +118,9 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
         {isExpanded && (
           <div className="mt-1 space-y-1">
             {task.body && (
-              <p className="text-xs text-neutral-400 whitespace-pre-wrap select-text">{task.body}</p>
+              <p className="text-xs text-neutral-400 whitespace-pre-wrap select-text">
+                {task.body}
+              </p>
             )}
             {task.tags && task.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -142,7 +155,8 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
         {confirmingDelete && (
           <div className="mt-2 flex items-center gap-2 p-1.5 bg-red-950 border border-red-800 rounded text-xs">
             <span className="text-red-300 flex-1 truncate">
-              Delete "{task.title.slice(0, 30)}{task.title.length > 30 ? '…' : ''}"?
+              Delete &ldquo;{task.title.slice(0, 30)}
+              {task.title.length > 30 ? '…' : ''}&rdquo;?
             </span>
             <button
               onClick={handleDeleteConfirm}
@@ -179,7 +193,10 @@ export default function TaskItem({ task, onUpdate, onDelete, onToggleStatus }: T
           >
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
               <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
-              <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 1a.5.5 0 0 0-.5.5v1h11V1.5a.5.5 0 0 0-.5-.5H2.5z" />
+              <path
+                fillRule="evenodd"
+                d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 1a.5.5 0 0 0-.5.5v1h11V1.5a.5.5 0 0 0-.5-.5H2.5z"
+              />
             </svg>
           </button>
         </div>

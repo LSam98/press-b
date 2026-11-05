@@ -18,6 +18,7 @@ const MAX_LINE = 999999
 
 // Control characters except \n (000A), \r (000D), \t (0009) — selections are
 // multi-line, so those survive. Built from a string to keep the source ASCII.
+// eslint-disable-next-line no-control-regex -- matching control chars is the point
 const CONTROL_CHARS = new RegExp('[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]', 'g')
 
 // Find a pressb:// URL anywhere in an argv array. Prefix-scan only — never

@@ -15,7 +15,11 @@ function formatFilePath(filePath: string): string {
 
 // Compact, icon-only link that opens a file at a line in the user's IDE.
 // Shared by tasks and AI suggestions so there's one open-file path and one look.
-export default function FileLink({ file, line, showPath = false }: FileLinkProps): React.JSX.Element {
+export default function FileLink({
+  file,
+  line,
+  showPath = false
+}: FileLinkProps): React.JSX.Element {
   const open = async (): Promise<void> => {
     if (!window.pressB) return
     try {

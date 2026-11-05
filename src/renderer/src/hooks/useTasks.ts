@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Task, PressBData, IDE, AIPrivacyScope, SuggestionVolume, SuggestionLens } from '../types'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- returns a large object literal; inferred on purpose
 export function useTasks(projectRoot: string | null) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -43,6 +44,7 @@ export function useTasks(projectRoot: string | null) {
 
   // Load tasks on mount or when projectRoot changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading data when the project changes
     loadTasks()
   }, [loadTasks])
 

@@ -5,7 +5,8 @@ export default function CheatsheetPanel(): React.JSX.Element {
       <p className="text-neutral-300 text-sm font-medium">Cheatsheet</p>
       <p className="text-neutral-500 text-xs text-center">
         Quick-reference snippets and commands for this project.
-        <br />Coming soon.
+        <br />
+        Coming soon.
       </p>
     </div>
   )

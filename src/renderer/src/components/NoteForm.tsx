@@ -37,6 +37,7 @@ export default function NoteForm({
         const cached = localStorage.getItem(DRAFT_CACHE_KEY)
         if (cached) {
           const draft: DraftData = JSON.parse(cached)
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring a saved draft once on mount
           setTitle(draft.title)
           setContent(draft.content)
         }
@@ -44,6 +45,7 @@ export default function NoteForm({
         console.error('Error restoring draft:', error)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only
   }, [])
 
   // Auto-save draft to localStorage (debounced)
@@ -65,7 +67,7 @@ export default function NoteForm({
     return () => clearTimeout(timer)
   }, [title, content, initialNote])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     // Escape to cancel
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -73,7 +75,7 @@ export default function NoteForm({
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
 
@@ -92,7 +94,7 @@ export default function NoteForm({
     onSubmit(note)
   }
 
-  const handleCancelClick = () => {
+  const handleCancelClick = (): void => {
     // Clear cache on cancel
     if (!initialNote) {
       localStorage.removeItem(DRAFT_CACHE_KEY)
@@ -101,7 +103,11 @@ export default function NoteForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-3 bg-neutral-800 border-b border-neutral-700" onKeyDown={handleKeyDown}>
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-3 p-3 bg-neutral-800 border-b border-neutral-700"
+      onKeyDown={handleKeyDown}
+    >
       <div>
         <input
           ref={titleRef}

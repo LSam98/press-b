@@ -47,7 +47,7 @@ const api = {
     getChat: (projectRoot: string) => ipcRenderer.invoke('ai:getChat', projectRoot),
     clearChat: (projectRoot: string) => ipcRenderer.invoke('ai:clearChat', projectRoot),
     onAskChunk: (callback: (chunk: { projectRoot: string; text: string }) => void) => {
-      const listener = (_event: unknown, chunk: { projectRoot: string; text: string }) =>
+      const listener = (_event: unknown, chunk: { projectRoot: string; text: string }): void =>
         callback(chunk)
       ipcRenderer.on('ai:askChunk', listener)
       return () => ipcRenderer.removeListener('ai:askChunk', listener)
@@ -56,7 +56,7 @@ const api = {
   deeplink: {
     getPending: () => ipcRenderer.invoke('deeplink:getPending'),
     onCreate: (callback: (payload: unknown) => void) => {
-      const listener = (_event: unknown, payload: unknown) => callback(payload)
+      const listener = (_event: unknown, payload: unknown): void => callback(payload)
       ipcRenderer.on('deeplink:create', listener)
       return () => ipcRenderer.removeListener('deeplink:create', listener)
     }
@@ -64,7 +64,7 @@ const api = {
   agents: {
     watch: (projectRoot: string) => ipcRenderer.invoke('agents:watch', projectRoot),
     onUpdated: (callback: (summary: unknown) => void) => {
-      const listener = (_event: unknown, summary: unknown) => callback(summary)
+      const listener = (_event: unknown, summary: unknown): void => callback(summary)
       ipcRenderer.on('agents:updated', listener)
       return () => ipcRenderer.removeListener('agents:updated', listener)
     }

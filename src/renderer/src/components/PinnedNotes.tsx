@@ -27,9 +27,11 @@ export default function PinnedNotes({
   // Consume-and-clear, mirroring TaskList's external-draft handling.
   useEffect(() => {
     if (!externalDraft) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- opening the form for an incoming IDE deep link
     setDraftNote(externalDraft)
     setShowForm(true)
     onExternalDraftConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to a new draft only, not to a re-created callback
   }, [externalDraft])
 
   return (
@@ -63,15 +65,12 @@ export default function PinnedNotes({
       <div className="flex-1 overflow-y-auto">
         {notes.length > 0 ? (
           notes.map((note) => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              onUpdate={onUpdateNote}
-              onDelete={onDeleteNote}
-            />
+            <NoteItem key={note.id} note={note} onUpdate={onUpdateNote} onDelete={onDeleteNote} />
           ))
         ) : (
-          <div className="p-4 text-center text-neutral-500">No pinned notes yet. Create one to get started!</div>
+          <div className="p-4 text-center text-neutral-500">
+            No pinned notes yet. Create one to get started!
+          </div>
         )}
       </div>
     </div>

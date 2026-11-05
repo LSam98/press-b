@@ -25,9 +25,7 @@ const BUILD_ARTIFACT_DIRS = new Set([
 // True when a task's linked path lives inside a build-artifact dir (any segment
 // matches — dist\win-unpacked\... etc). Paths here are project-relative.
 function isBuildArtifactPath(relPath: string): boolean {
-  return relPath
-    .split(/[\\/]/)
-    .some((segment) => BUILD_ARTIFACT_DIRS.has(segment.toLowerCase()))
+  return relPath.split(/[\\/]/).some((segment) => BUILD_ARTIFACT_DIRS.has(segment.toLowerCase()))
 }
 
 interface TaskListProps {
@@ -63,9 +61,11 @@ export default function TaskList({
   // A second deep link while the form is open simply replaces the draft.
   useEffect(() => {
     if (!externalDraft) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- opening the form for an incoming IDE deep link
     setDraftTask(externalDraft)
     setShowForm(true)
     onExternalDraftConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to a new draft only, not to a re-created callback
   }, [externalDraft])
   const [activeTypes, setActiveTypes] = useState<TaskType[]>([])
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'done'>('all')
@@ -92,20 +92,26 @@ export default function TaskList({
   const doneTasks = filteredTasks.filter((t) => t.status === 'done')
 
   // Get unique linked files for filter suggestions
-  const linkedFiles = Array.from(new Set(tasks.filter((t) => t.linkedFile).map((t) => t.linkedFile))) as string[]
+  const linkedFiles = Array.from(
+    new Set(tasks.filter((t) => t.linkedFile).map((t) => t.linkedFile))
+  ) as string[]
 
   // Get unique tags across all tasks for filter chips
   const allTags = Array.from(new Set(tasks.flatMap((t) => t.tags || [])))
 
-  const hasActiveFilters = activeTypes.length > 0 || statusFilter !== 'all' || linkedFileFilter !== '' || activeTagFilter !== ''
+  const hasActiveFilters =
+    activeTypes.length > 0 ||
+    statusFilter !== 'all' ||
+    linkedFileFilter !== '' ||
+    activeTagFilter !== ''
 
-  const handleToggleType = (type: TaskType) => {
+  const handleToggleType = (type: TaskType): void => {
     setActiveTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     )
   }
 
-  const clearFilters = () => {
+  const clearFilters = (): void => {
     setActiveTypes([])
     setStatusFilter('all')
     setLinkedFileFilter('')
@@ -178,8 +184,8 @@ export default function TaskList({
           {statusFilter === 'open' || statusFilter === 'all'
             ? `${openTasks.length} of ${tasks.filter((t) => t.status === 'open').length} open`
             : statusFilter === 'done'
-            ? `${doneTasks.length} completed`
-            : `${filteredTasks.length} of ${tasks.length} total`}
+              ? `${doneTasks.length} completed`
+              : `${filteredTasks.length} of ${tasks.length} total`}
         </div>
 
         {/* Status Filter */}
@@ -307,10 +313,9 @@ export default function TaskList({
               </p>
               <p>
                 Or enable the <span className="text-neutral-300">File Watcher</span> in Settings to
-                auto-capture{' '}
-                <span className="font-mono text-neutral-400">// TODO:</span> /{' '}
-                <span className="font-mono text-neutral-400">// REFACTOR:</span> comments from your
-                code.
+                auto-capture <span className="font-mono text-neutral-400">{'// TODO:'}</span> /{' '}
+                <span className="font-mono text-neutral-400">{'// REFACTOR:'}</span> comments from
+                your code.
               </p>
             </div>
           </div>
@@ -322,7 +327,9 @@ export default function TaskList({
         {doneTasks.length > 0 && (
           <div>
             <div className="px-4 py-2 bg-neutral-800 border-t border-neutral-700 sticky top-0">
-              <p className="text-xs font-semibold text-neutral-500 uppercase">Completed ({doneTasks.length})</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase">
+                Completed ({doneTasks.length})
+              </p>
             </div>
             {doneTasks.map((task) => (
               <TaskItem

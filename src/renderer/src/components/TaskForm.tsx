@@ -52,6 +52,7 @@ export default function TaskForm({
         const cached = localStorage.getItem(DRAFT_CACHE_KEY)
         if (cached) {
           const draft: DraftData = JSON.parse(cached)
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring a saved draft once on mount
           setTitle(draft.title)
           setBody(draft.body)
           setType(draft.type)
@@ -64,6 +65,7 @@ export default function TaskForm({
         console.error('Error restoring draft:', error)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount only
   }, [])
 
   // Auto-save draft to localStorage (debounced)
@@ -90,11 +92,11 @@ export default function TaskForm({
     return () => clearTimeout(timer)
   }, [title, body, type, priority, linkedFile, linkedLine, tags, initialTask])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     // Enter to submit (Ctrl+Enter for textarea)
     if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement)) {
       e.preventDefault()
-      handleSubmit(e as any)
+      handleSubmit(e)
     }
     // Escape to cancel
     if (e.key === 'Escape') {
@@ -103,7 +105,7 @@ export default function TaskForm({
     }
   }
 
-  const handleSelectFile = async () => {
+  const handleSelectFile = async (): Promise<void> => {
     try {
       if (!window.pressB) {
         console.error('API not available')
@@ -118,13 +120,13 @@ export default function TaskForm({
     }
   }
 
-  const handleClearLink = () => {
+  const handleClearLink = (): void => {
     setLinkedFile('')
     setLinkedLine(0)
     setShowLinking(false)
   }
 
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
       const trimmed = tagInput.trim().replace(/^,|,$/g, '')
@@ -138,9 +140,9 @@ export default function TaskForm({
     }
   }
 
-  const removeTag = (tag: string) => setTags(tags.filter((t) => t !== tag))
+  const removeTag = (tag: string): void => setTags(tags.filter((t) => t !== tag))
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     if (!title.trim()) return
 
@@ -171,7 +173,11 @@ export default function TaskForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-3 bg-neutral-800 border-b border-neutral-700" onKeyDown={handleKeyDown}>
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-3 p-3 bg-neutral-800 border-b border-neutral-700"
+      onKeyDown={handleKeyDown}
+    >
       <div>
         <input
           ref={titleRef}

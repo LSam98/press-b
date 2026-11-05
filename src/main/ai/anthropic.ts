@@ -49,8 +49,10 @@ const VOLUME_CAP: Record<SuggestionVolume, number> = {
 }
 
 const LENS_DESCRIPTIONS: Record<SuggestionLens, string> = {
-  'next-step': 'the single most logical next action to make progress, given recent activity and open tasks',
-  'code-quality': 'a concrete, justified refactor or cleanup that would meaningfully improve the code',
+  'next-step':
+    'the single most logical next action to make progress, given recent activity and open tasks',
+  'code-quality':
+    'a concrete, justified refactor or cleanup that would meaningfully improve the code',
   'missing-tests': 'a specific gap in test coverage worth filling',
   architecture: 'a higher-level structural improvement (module boundaries, separation of concerns)'
 }

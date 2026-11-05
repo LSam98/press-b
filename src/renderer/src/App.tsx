@@ -122,7 +122,7 @@ function App(): React.JSX.Element {
 
   // Load last project root on app startup
   useEffect(() => {
-    const loadProjectRoot = async () => {
+    const loadProjectRoot = async (): Promise<void> => {
       try {
         console.log('[App] Checking for window.pressB...')
         if (!window.pressB) {
@@ -155,7 +155,7 @@ function App(): React.JSX.Element {
 
   // Load opacity and restore window position when project root loads
   useEffect(() => {
-    const loadSettingsAndRestore = async () => {
+    const loadSettingsAndRestore = async (): Promise<void> => {
       if (!projectRoot) return
 
       try {
@@ -200,7 +200,7 @@ function App(): React.JSX.Element {
     loadSettingsAndRestore()
   }, [projectRoot])
 
-  const handleSelectProject = async (newRoot: string) => {
+  const handleSelectProject = async (newRoot: string): Promise<void> => {
     try {
       if (!window.pressB) {
         throw new Error('API not available')
@@ -261,7 +261,9 @@ function App(): React.JSX.Element {
           <div className="text-center">
             <p className="text-red-400 mb-2 font-semibold">API Error</p>
             <p className="text-neutral-400 text-sm mb-4">{apiError}</p>
-            <p className="text-neutral-500 text-xs">Check DevTools console (F12) for more details</p>
+            <p className="text-neutral-500 text-xs">
+              Check DevTools console (F12) for more details
+            </p>
           </div>
         </div>
       </div>
@@ -502,4 +504,3 @@ function App(): React.JSX.Element {
 }
 
 export default App
-

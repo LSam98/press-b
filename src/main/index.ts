@@ -17,7 +17,7 @@ import icon from '../../resources/icon.png?asset'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as http from 'http'
-import { execFile } from 'child_process'
+import { execFile, ExecFileOptions } from 'child_process'
 import { watch } from 'chokidar'
 import * as keyStore from './ai/keyStore'
 import * as briefStore from './ai/briefStore'
@@ -426,18 +426,48 @@ const IGNORED_DIR_NAMES = [
 ]
 // Separator-anchored so directory NAMES match, not substrings (e.g. "checkout.ts" is safe from "out").
 // Also ignores any dot-directory/file segment (.git, .idea, .vscode, .venv, ...).
-const WATCHER_IGNORED = new RegExp(`(^|[\\/\\\\])(\\.[^\\/\\\\]+|${IGNORED_DIR_NAMES.join('|')})([\\/\\\\]|$)`)
+const WATCHER_IGNORED = new RegExp(
+  `(^|[\\/\\\\])(\\.[^\\/\\\\]+|${IGNORED_DIR_NAMES.join('|')})([\\/\\\\]|$)`
+)
 
 // Only read real source/text files — never binaries (the old behavior read EVERY
 // file as UTF-8, including 200MB .exe build outputs).
 const SOURCE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.java', '.kt', '.kts',
-  '.c', '.h', '.cpp', '.hpp', '.cc',
-  '.cs', '.go', '.rb', '.rs', '.php', '.swift',
-  '.sql', '.lua', '.sh', '.ps1', '.bat',
-  '.html', '.css', '.scss', '.vue', '.svelte',
-  '.yml', '.yaml', '.toml', '.md'
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.java',
+  '.kt',
+  '.kts',
+  '.c',
+  '.h',
+  '.cpp',
+  '.hpp',
+  '.cc',
+  '.cs',
+  '.go',
+  '.rb',
+  '.rs',
+  '.php',
+  '.swift',
+  '.sql',
+  '.lua',
+  '.sh',
+  '.ps1',
+  '.bat',
+  '.html',
+  '.css',
+  '.scss',
+  '.vue',
+  '.svelte',
+  '.yml',
+  '.yaml',
+  '.toml',
+  '.md'
 ])
 const MAX_SCAN_FILE_BYTES = 1.5 * 1024 * 1024 // backstop: skip anything over ~1.5MB
 
@@ -485,6 +515,26 @@ function detectCommentsInFile(
   }
 }
 
+// Launch an IDE without tying it to Press B's lifetime. execFile honours
+// `detached` at runtime, but its options type doesn't declare it.
+const DETACHED = { detached: true, stdio: 'ignore' } as unknown as ExecFileOptions
+
+// The task fields the comment watcher reads and writes. Anything else in a
+// stored task passes through untouched.
+interface StoredTask {
+  type?: string
+  title?: string
+  linkedFile?: string
+  linkedLine?: number
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+interface StoredData {
+  tasks?: StoredTask[]
+  [key: string]: unknown
+}
+
 // Helper: Create a task object from detected comment
 function createTaskFromComment(
   filePath: string,
@@ -492,7 +542,7 @@ function createTaskFromComment(
   lineNumber: number,
   commentText: string,
   type: 'TODO' | 'REFACTOR'
-): any {
+): StoredTask {
   const now = new Date().toISOString()
   const relativeFilePath = path.relative(projectRoot, filePath)
 
@@ -535,7 +585,7 @@ ipcMain.handle('storage:load', async (_event, projectRoot: string) => {
     console.error('Error loading tasks:', error)
     throw new Error(`Failed to load tasks: ${error}`)
   }
-}); // End of storage:load handler
+}) // End of storage:load handler
 
 // Save tasks to .pressb.json
 ipcMain.handle('storage:save', async (_event, projectRoot: string, data: unknown) => {
@@ -654,7 +704,11 @@ function tryJetBrainsRest(relPath: string, line: number): Promise<boolean> {
   })
 }
 
-function buildIDECommand(ideType: string, filePath: string, lineNumber?: number): { command: string; args: string[] } {
+function buildIDECommand(
+  ideType: string,
+  filePath: string,
+  lineNumber?: number
+): { command: string; args: string[] } {
   const isWindows = process.platform === 'win32'
 
   // Line number is 1-indexed (user enters what they see in IDE)
@@ -718,7 +772,7 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
           preferredIDE = data.settings?.preferredIDE || 'vscode'
         }
       }
-    } catch (e) {
+    } catch {
       console.log('Could not read preferredIDE from project settings, falling back to VS Code')
     }
 
@@ -754,14 +808,9 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
       //    prompt, because the file already lives in the open project.
       const launcher = findJetBrainsLauncher(preferredIDE)
       if (launcher) {
-        execFile(
-          launcher,
-          ['--line', String(line), absolutePath],
-          { detached: true, stdio: 'ignore' } as any,
-          (err) => {
-            if (err) console.error(`JetBrains launcher failed: ${err.message}`)
-          }
-        )
+        execFile(launcher, ['--line', String(line), absolutePath], DETACHED, (err) => {
+          if (err) console.error(`JetBrains launcher failed: ${err.message}`)
+        })
         return { success: true, path: absolutePath, line }
       }
 
@@ -780,19 +829,14 @@ ipcMain.handle('shell:openFile', async (_event, filePath: string, lineNumber?: n
 
     // For remaining IDEs (Sublime, Neovim, custom) fall back to execFile
     const { command, args } = buildIDECommand(preferredIDE, absolutePath, lineNumber)
-    execFile(
-      command,
-      args,
-      { detached: true, stdio: 'ignore' } as any,
-      (error) => {
-        if (error) {
-          console.error(`Error opening file in ${preferredIDE}:`, error)
-          shell.openPath(absolutePath).catch((err) => {
-            console.error('Fallback shell.openPath failed:', err)
-          })
-        }
+    execFile(command, args, DETACHED, (error) => {
+      if (error) {
+        console.error(`Error opening file in ${preferredIDE}:`, error)
+        shell.openPath(absolutePath).catch((err) => {
+          console.error('Fallback shell.openPath failed:', err)
+        })
       }
-    )
+    })
 
     return { success: true, path: absolutePath, line }
   } catch (error) {
@@ -905,7 +949,7 @@ async function processFileForTasks(filePath: string, projectRoot: string): Promi
   if (comments.length === 0) return false
 
   const tasksFile = getTasksFilePath(projectRoot)
-  let data: any = {
+  let data: StoredData = {
     project: path.basename(projectRoot),
     version: '1.0',
     tasks: [],
@@ -927,10 +971,8 @@ async function processFileForTasks(filePath: string, projectRoot: string): Promi
     // Primary match: same file + same title + same type (handles line shifts)
     // This prevents a TODO that just moved lines from spawning a second task.
     const existingByTitle = (data.tasks || []).find(
-      (t: any) =>
-        t.linkedFile === relativeFilePath &&
-        t.title === comment.title &&
-        t.type === comment.type
+      (t) =>
+        t.linkedFile === relativeFilePath && t.title === comment.title && t.type === comment.type
     )
 
     if (existingByTitle) {
@@ -944,11 +986,17 @@ async function processFileForTasks(filePath: string, projectRoot: string): Promi
     } else {
       // Truly new comment — create a task only if nothing already lives at this exact line
       const exactLineMatch = (data.tasks || []).some(
-        (t: any) => t.linkedFile === relativeFilePath && t.linkedLine === comment.line
+        (t) => t.linkedFile === relativeFilePath && t.linkedLine === comment.line
       )
       if (!exactLineMatch) {
-        const newTask = createTaskFromComment(filePath, projectRoot, comment.line, comment.title, comment.type)
-        data.tasks.push(newTask)
+        const newTask = createTaskFromComment(
+          filePath,
+          projectRoot,
+          comment.line,
+          comment.title,
+          comment.type
+        )
+        ;(data.tasks ??= []).push(newTask)
         modified = true
       }
       detectedComments.set(newKey, true)
@@ -992,7 +1040,9 @@ ipcMain.handle('watcher:start', async (_event, projectRoot: string) => {
 
     // After the initial crawl is complete, scan all discovered files at once
     fileWatcher.on('ready', async () => {
-      console.log(`Initial scan: checking ${initialFiles.length} files for TODO/REFACTOR comments...`)
+      console.log(
+        `Initial scan: checking ${initialFiles.length} files for TODO/REFACTOR comments...`
+      )
       let totalAdded = false
       for (const filePath of initialFiles) {
         try {
@@ -1146,7 +1196,10 @@ ipcMain.handle('ai:generateSuggestions', async (_event, projectRoot: string) => 
         model = data.settings?.aiModel || model
         scope = data.settings?.aiPrivacyScope || scope
         volume = data.settings?.aiSuggestionVolume || volume
-        if (Array.isArray(data.settings?.aiSuggestionLenses) && data.settings.aiSuggestionLenses.length) {
+        if (
+          Array.isArray(data.settings?.aiSuggestionLenses) &&
+          data.settings.aiSuggestionLenses.length
+        ) {
           lenses = data.settings.aiSuggestionLenses
         }
       }

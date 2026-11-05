@@ -16,13 +16,13 @@ export default function TitleBar({
   recentProjects,
   onRemoveRecent
 }: TitleBarProps): React.JSX.Element {
-  const handleClose = () => {
+  const handleClose = (): void => {
     if (window.pressB?.window?.close) {
       window.pressB.window.close()
     }
   }
 
-  const handleSelectFolder = async () => {
+  const handleSelectFolder = async (): Promise<void> => {
     try {
       if (!window.pressB) {
         console.error('API not available')

@@ -113,7 +113,10 @@ export default function SuggestionsPanel({
         {!hasKey && (
           <p className="text-xs text-neutral-400">
             Add your Anthropic key in{' '}
-            <button onClick={onGoToSettings} className="text-amber-400 hover:underline cursor-pointer">
+            <button
+              onClick={onGoToSettings}
+              className="text-amber-400 hover:underline cursor-pointer"
+            >
               Settings
             </button>{' '}
             to get task suggestions.
@@ -145,7 +148,12 @@ export default function SuggestionsPanel({
           !error &&
           !isSuggesting &&
           suggestions?.map((s, i) => (
-            <SuggestionCard key={`${s.title}-${i}`} suggestion={s} onAccept={onAccept} onDismiss={onDismiss} />
+            <SuggestionCard
+              key={`${s.title}-${i}`}
+              suggestion={s}
+              onAccept={onAccept}
+              onDismiss={onDismiss}
+            />
           ))}
       </div>
     </div>

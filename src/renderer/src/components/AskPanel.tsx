@@ -110,10 +110,7 @@ export default function AskPanel({
                   Ask about your project — answers are grounded in your tasks and notes.
                 </p>
               ) : (
-                <div
-                  ref={scrollRef}
-                  className="max-h-64 overflow-y-auto space-y-2 mb-2 pr-1"
-                >
+                <div ref={scrollRef} className="max-h-64 overflow-y-auto space-y-2 mb-2 pr-1">
                   {messages.map((m, i) => (
                     <div key={i}>
                       {m.role === 'user' ? (
