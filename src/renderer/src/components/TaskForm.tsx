@@ -6,6 +6,7 @@ interface TaskFormProps {
   onSubmit: (task: Task) => void
   onCancel: () => void
   initialTask?: Task
+  submitLabel?: string
 }
 
 const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'PENDING']
@@ -22,7 +23,12 @@ interface DraftData {
   tags: string[]
 }
 
-export default function TaskForm({ onSubmit, onCancel, initialTask }: TaskFormProps): React.JSX.Element {
+export default function TaskForm({
+  onSubmit,
+  onCancel,
+  initialTask,
+  submitLabel
+}: TaskFormProps): React.JSX.Element {
   const [title, setTitle] = useState(initialTask?.title || '')
   const [body, setBody] = useState(initialTask?.body || '')
   const [type, setType] = useState<TaskType>(initialTask?.type || 'TODO')
@@ -292,7 +298,7 @@ export default function TaskForm({ onSubmit, onCancel, initialTask }: TaskFormPr
           type="submit"
           className="draggable-no-drag flex-1 px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition cursor-pointer"
         >
-          {initialTask ? 'Confirm Changes' : 'Add Task'}
+          {submitLabel || (initialTask ? 'Confirm Changes' : 'Add Task')}
         </button>
         <button
           type="button"

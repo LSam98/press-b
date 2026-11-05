@@ -14,8 +14,11 @@ import {
   SuggestionVolume,
   SuggestionLens,
   Suggestion,
-  Task
+  Task,
+  PinnedNote,
+  DeepLinkPayload
 } from './types'
+import { buildTaskDraftFromDeepLink, buildNoteDraftFromDeepLink } from './utils/deeplink'
 
 type Tab = 'tasks' | 'notes' | 'companion' | 'settings'
 
@@ -33,6 +36,10 @@ function App(): React.JSX.Element {
   const [aiScope, setAiScope] = useState<AIPrivacyScope>('metadata+snippets')
   const [aiVolume, setAiVolume] = useState<SuggestionVolume>('balanced')
   const [aiLenses, setAiLenses] = useState<SuggestionLens[]>(['next-step'])
+  // Pre-filled drafts from pressb:// deep links ("Create in Press B" in the
+  // IDE). Consumed once by TaskList/PinnedNotes, which clear them right away.
+  const [pendingTaskDraft, setPendingTaskDraft] = useState<Task | null>(null)
+  const [pendingNoteDraft, setPendingNoteDraft] = useState<PinnedNote | null>(null)
 
   const {
     tasks,
@@ -93,6 +100,23 @@ function App(): React.JSX.Element {
     removeSuggestion(s)
   }
 
+  // A deep link becomes a pre-filled form on the right tab.
+  const handleDeepLink = (payload: DeepLinkPayload): void => {
+    if (payload.target === 'note') {
+      setPendingNoteDraft(buildNoteDraftFromDeepLink(payload))
+      setActiveTab('notes')
+    } else {
+      setPendingTaskDraft(buildTaskDraftFromDeepLink(payload))
+      setActiveTab('tasks')
+    }
+  }
+
+  // Warm deliveries: main pushes deep links that arrive while the app is running.
+  useEffect(() => {
+    if (!window.pressB?.deeplink) return undefined
+    return window.pressB.deeplink.onCreate(handleDeepLink)
+  }, [])
+
   // Load last project root on app startup
   useEffect(() => {
     const loadProjectRoot = async () => {
@@ -109,6 +133,12 @@ function App(): React.JSX.Element {
           setProjectRoot(lastRoot)
         }
         setRecentProjects(await window.pressB.config.getRecentProjects())
+
+        // Cold start via a deep link: pull AFTER the project root is loaded —
+        // main parses the buffered URL at this moment, so relativization uses
+        // the fresh root. Ordering here is the correctness guarantee.
+        const pending = await window.pressB.deeplink.getPending()
+        if (pending) handleDeepLink(pending)
       } catch (error) {
         console.error('[App] Error loading project root:', error)
         setApiError((error as Error).message)
@@ -376,10 +406,19 @@ function App(): React.JSX.Element {
             onDeleteTask={deleteTask}
             onDeleteTasks={deleteTasks}
             onToggleStatus={toggleStatus}
+            externalDraft={pendingTaskDraft}
+            onExternalDraftConsumed={() => setPendingTaskDraft(null)}
           />
         </div>
         <div className={activeTab === 'notes' ? 'h-full' : 'hidden'}>
-          <PinnedNotes notes={notes} onAddNote={addNote} onUpdateNote={updateNote} onDeleteNote={deleteNote} />
+          <PinnedNotes
+            notes={notes}
+            onAddNote={addNote}
+            onUpdateNote={updateNote}
+            onDeleteNote={deleteNote}
+            externalDraft={pendingNoteDraft}
+            onExternalDraftConsumed={() => setPendingNoteDraft(null)}
+          />
         </div>
         <div className={activeTab === 'companion' ? 'h-full' : 'hidden'}>
           <AICompanionPanel

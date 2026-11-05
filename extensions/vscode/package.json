@@ -1,0 +1,48 @@
+{
+  "name": "pressb-vscode",
+  "displayName": "Press B",
+  "description": "Create Press B tasks and notes straight from the editor via pressb:// deep links.",
+  "version": "0.1.0",
+  "publisher": "lsam98",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pressb.createTask",
+        "title": "Create Task in Press B"
+      },
+      {
+        "command": "pressb.createNote",
+        "title": "Create Note in Press B"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "pressb.createTask",
+          "when": "editorTextFocus",
+          "group": "pressb@1"
+        },
+        {
+          "command": "pressb.createNote",
+          "when": "editorTextFocus",
+          "group": "pressb@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

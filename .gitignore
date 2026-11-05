@@ -4,6 +4,7 @@ out
 .DS_Store
 .eslintcache
 *.log*
+*.vsix
 
 # Press B project data — keep the maintainer's own dogfood tasks/notes out of the repo
 .pressb.json

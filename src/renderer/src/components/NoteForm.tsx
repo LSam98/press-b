@@ -5,6 +5,7 @@ interface NoteFormProps {
   onSubmit: (note: PinnedNote) => void
   onCancel: () => void
   initialNote?: PinnedNote
+  submitLabel?: string
 }
 
 const DRAFT_CACHE_KEY = 'noteform-draft'
@@ -14,7 +15,12 @@ interface DraftData {
   content: string
 }
 
-export default function NoteForm({ onSubmit, onCancel, initialNote }: NoteFormProps): React.JSX.Element {
+export default function NoteForm({
+  onSubmit,
+  onCancel,
+  initialNote,
+  submitLabel
+}: NoteFormProps): React.JSX.Element {
   const [title, setTitle] = useState(initialNote?.title || '')
   const [content, setContent] = useState(initialNote?.content || '')
   const titleRef = useRef<HTMLInputElement>(null)
@@ -119,7 +125,7 @@ export default function NoteForm({ onSubmit, onCancel, initialNote }: NoteFormPr
           type="submit"
           className="draggable-no-drag flex-1 px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition cursor-pointer"
         >
-          {initialNote ? 'Confirm Changes' : 'Add Note'}
+          {submitLabel || (initialNote ? 'Confirm Changes' : 'Add Note')}
         </button>
         <button
           type="button"

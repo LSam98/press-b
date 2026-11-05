@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PinnedNote } from '../types'
 import NoteItem from './NoteItem'
 import NoteForm from './NoteForm'
@@ -8,20 +8,46 @@ interface PinnedNotesProps {
   onAddNote: (note: PinnedNote) => void
   onUpdateNote: (note: PinnedNote) => void
   onDeleteNote: (id: string) => void
+  // Pre-filled draft pushed from outside (IDE deep link) — see TaskList.
+  externalDraft?: PinnedNote | null
+  onExternalDraftConsumed?: () => void
 }
 
-export default function PinnedNotes({ notes, onAddNote, onUpdateNote, onDeleteNote }: PinnedNotesProps): React.JSX.Element {
+export default function PinnedNotes({
+  notes,
+  onAddNote,
+  onUpdateNote,
+  onDeleteNote,
+  externalDraft,
+  onExternalDraftConsumed
+}: PinnedNotesProps): React.JSX.Element {
   const [showForm, setShowForm] = useState(false)
+  const [draftNote, setDraftNote] = useState<PinnedNote | null>(null)
+
+  // Consume-and-clear, mirroring TaskList's external-draft handling.
+  useEffect(() => {
+    if (!externalDraft) return
+    setDraftNote(externalDraft)
+    setShowForm(true)
+    onExternalDraftConsumed?.()
+  }, [externalDraft])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {showForm && (
         <NoteForm
+          key={draftNote?.id ?? 'blank'}
+          initialNote={draftNote ?? undefined}
+          submitLabel={draftNote ? 'Add Note' : undefined}
           onSubmit={(note) => {
             onAddNote(note)
             setShowForm(false)
+            setDraftNote(null)
           }}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false)
+            setDraftNote(null)
+          }}
         />
       )}
 

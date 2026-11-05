@@ -22,6 +22,16 @@ export interface Suggestion {
   linkedLine?: number
 }
 
+// pressb:// deep-link payload pushed from main ("Create in Press B" from the
+// IDE). Mirrors DeepLinkPayload in src/main/deeplink.ts and src/preload/index.d.ts.
+export interface DeepLinkPayload {
+  target: 'task' | 'note'
+  file?: string
+  absFile?: string
+  line?: number
+  text?: string
+}
+
 // Project-aware Ask (Pillar 3)
 export interface ChatMessage {
   role: 'user' | 'assistant'

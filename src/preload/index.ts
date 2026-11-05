@@ -53,6 +53,14 @@ const api = {
       return () => ipcRenderer.removeListener('ai:askChunk', listener)
     }
   },
+  deeplink: {
+    getPending: () => ipcRenderer.invoke('deeplink:getPending'),
+    onCreate: (callback: (payload: unknown) => void) => {
+      const listener = (_event: unknown, payload: unknown) => callback(payload)
+      ipcRenderer.on('deeplink:create', listener)
+      return () => ipcRenderer.removeListener('deeplink:create', listener)
+    }
+  },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)
     // Return an unsubscribe function so the renderer can clean up on unmount

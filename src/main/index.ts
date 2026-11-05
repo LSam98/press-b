@@ -26,6 +26,7 @@ import * as chatStore from './ai/chatStore'
 import { buildProjectDigest } from './ai/context'
 import { AnthropicProvider, describeAIError } from './ai/anthropic'
 import { PrivacyScope, SuggestionVolume, SuggestionLens, ChatMessage } from './ai/types'
+import { extractDeepLinkUrl, parseDeepLink } from './deeplink'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null // module scope so it isn't garbage-collected
@@ -35,6 +36,7 @@ let fileWatcher: ReturnType<typeof watch> | null = null
 const detectedComments = new Map<string, boolean>() // Track file:lineNumber to avoid duplicates
 let debounceTimer: NodeJS.Timeout | null = null
 let currentProjectRoot: string | null = null // Tracks the active project so IPC handlers can read its settings
+let pendingDeepLinkUrl: string | null = null // Raw pressb:// URL buffered until the renderer is ready to pull it
 let positionSaveTimer: NodeJS.Timeout | null = null // Debounce timer for auto-saving window position
 
 // Helper: Get default window position (top-left of primary display, with small offset)
@@ -79,6 +81,24 @@ function showWindow(): void {
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
+}
+
+// Deliver a pressb:// deep link: push to the renderer when it's ready, otherwise
+// buffer the RAW url — it is parsed at delivery time so currentProjectRoot is
+// fresh (the renderer pulls the buffer via deeplink:getPending after it loads
+// the project root).
+function handleDeepLinkUrl(rawUrl: string): void {
+  if (!mainWindow || mainWindow.webContents.isLoading()) {
+    pendingDeepLinkUrl = rawUrl
+    return
+  }
+  const payload = parseDeepLink(rawUrl, currentProjectRoot)
+  if (!payload) {
+    console.warn('Ignored invalid pressb:// URL')
+    return
+  }
+  showWindow()
+  mainWindow.webContents.send('deeplink:create', payload)
 }
 
 // Toggle visibility — shared by the Ctrl/Cmd+Shift+F shortcut and the tray.
@@ -206,8 +226,23 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => showWindow())
+  app.on('second-instance', (_event, argv) => {
+    showWindow()
+    const url = extractDeepLinkUrl(argv)
+    if (url) handleDeepLinkUrl(url)
+  })
+  // Cold start via a pressb:// link: the URL arrives in our own argv. Buffer it —
+  // the renderer pulls it (deeplink:getPending) once the project root is loaded.
+  pendingDeepLinkUrl = extractDeepLinkUrl(process.argv)
 }
+
+// Renderer pull for a deep link that arrived before the renderer was ready
+// (cold start or a race during boot). Parsed NOW, when the project root is set.
+ipcMain.handle('deeplink:getPending', () => {
+  const url = pendingDeepLinkUrl
+  pendingDeepLinkUrl = null
+  return url ? parseDeepLink(url, currentProjectRoot) : null
+})
 
 // Any real quit path (tray Quit, Cmd+Q) must bypass close-to-tray.
 app.on('before-quit', () => {
@@ -228,6 +263,13 @@ app.whenReady().then(() => {
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.pressb.app')
+
+  // pressb:// protocol: NSIS writes the registry entry at install; this is a
+  // per-user self-heal. Never registered in dev — it would hijack the installed
+  // handler and point it at the dev electron.exe until reinstall.
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient('pressb')
+  }
 
   // Optimize window handling
   app.on('browser-window-created', (_, window) => {

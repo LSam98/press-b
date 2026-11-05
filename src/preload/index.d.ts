@@ -1,5 +1,14 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
+// Mirrors DeepLinkPayload in src/main/deeplink.ts (preload types stay self-contained).
+export interface DeepLinkPayload {
+  target: 'task' | 'note'
+  file?: string
+  absFile?: string
+  line?: number
+  text?: string
+}
+
 export interface PressBAPI {
   storage: {
     load: (projectRoot: string) => Promise<unknown>
@@ -61,6 +70,10 @@ export interface PressBAPI {
     onAskChunk: (
       callback: (chunk: { projectRoot: string; text: string }) => void
     ) => () => void
+  }
+  deeplink: {
+    getPending: () => Promise<DeepLinkPayload | null>
+    onCreate: (callback: (payload: DeepLinkPayload) => void) => () => void
   }
   onTasksUpdated: (callback: () => void) => () => void
 }

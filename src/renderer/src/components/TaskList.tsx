@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Task, TaskType, Priority } from '../types'
 import TaskForm from './TaskForm'
 import TaskItem from './TaskItem'
@@ -37,6 +37,10 @@ interface TaskListProps {
   onDeleteTask: (id: string) => void
   onDeleteTasks: (ids: string[]) => void
   onToggleStatus: (id: string) => void
+  // Pre-filled draft pushed from outside (IDE deep link). Consumed once:
+  // copied into local state, then cleared via onExternalDraftConsumed.
+  externalDraft?: Task | null
+  onExternalDraftConsumed?: () => void
 }
 
 const TASK_TYPES: TaskType[] = ['TODO', 'BUG', 'REFACTOR', 'PENDING']
@@ -47,9 +51,22 @@ export default function TaskList({
   onUpdateTask,
   onDeleteTask,
   onDeleteTasks,
-  onToggleStatus
+  onToggleStatus,
+  externalDraft,
+  onExternalDraftConsumed
 }: TaskListProps): React.JSX.Element {
   const [showForm, setShowForm] = useState(false)
+  const [draftTask, setDraftTask] = useState<Task | null>(null)
+
+  // Consume-and-clear: copy the external draft locally and empty App's pending
+  // state immediately, so the form can't ghost-reopen later (tabs stay mounted).
+  // A second deep link while the form is open simply replaces the draft.
+  useEffect(() => {
+    if (!externalDraft) return
+    setDraftTask(externalDraft)
+    setShowForm(true)
+    onExternalDraftConsumed?.()
+  }, [externalDraft])
   const [activeTypes, setActiveTypes] = useState<TaskType[]>([])
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'done'>('all')
   const [linkedFileFilter, setLinkedFileFilter] = useState('')
@@ -98,13 +115,29 @@ export default function TaskList({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {showForm && (
-        <TaskForm
-          onSubmit={(task) => {
-            onAddTask(task)
-            setShowForm(false)
-          }}
-          onCancel={() => setShowForm(false)}
-        />
+        <>
+          {draftTask && !draftTask.linkedFile && draftTask.body?.includes('From: ') && (
+            <p className="text-[10px] text-amber-400/80 px-3 pt-2">
+              Captured outside this project — source path kept in the description.
+            </p>
+          )}
+          {/* key is load-bearing: TaskForm seeds its state in useState
+              initializers, so a new draft must force a remount. */}
+          <TaskForm
+            key={draftTask?.id ?? 'blank'}
+            initialTask={draftTask ?? undefined}
+            submitLabel={draftTask ? 'Add Task' : undefined}
+            onSubmit={(task) => {
+              onAddTask(task)
+              setShowForm(false)
+              setDraftTask(null)
+            }}
+            onCancel={() => {
+              setShowForm(false)
+              setDraftTask(null)
+            }}
+          />
+        </>
       )}
 
       {!showForm && (
