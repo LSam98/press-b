@@ -105,10 +105,38 @@ export interface AgentSession {
   costUsd: number | null
   unpricedCalls: number
   byDay: Record<string, AgentTokenTotals & { costUsd: number }>
+  captured?: AgentCapturedTotals
+}
+
+// Deep capture: requests the proxy saw that the session logs don't show.
+export interface AgentExtraTotals {
+  count: number
+  tokens: AgentTokenTotals
+  costUsd: number
+  unpriced: number
+  byLabel: Record<string, { count: number; costUsd: number }>
+}
+
+export interface AgentCapturedTotals {
+  exchanges: number
+  extra: AgentExtraTotals
+}
+
+export interface AgentCaptureStatus {
+  enabled: boolean
+  active: boolean
+  port: number | null
+  upstream: string | null
+  settingsFile: string
+  since: number | null
+  error: string | null
+  notes: string[]
 }
 
 export interface AgentSummary {
   projectRoot: string
   sessions: AgentSession[]
   updatedAt: number
+  capture: AgentCaptureStatus | null
+  unmatched: AgentCapturedTotals | null
 }

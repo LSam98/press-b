@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { AgentSession, AgentSummary, AgentTokenTotals } from '../types'
+import {
+  AgentCaptureStatus,
+  AgentCapturedTotals,
+  AgentSession,
+  AgentSummary,
+  AgentTokenTotals
+} from '../types'
 
 interface AgentsPanelProps {
   summary: AgentSummary | null
@@ -38,6 +44,30 @@ function fmtTokens(n: number): string {
 
 function fmtPct(x: number | null): string {
   return x === null ? '–' : `${Math.round(x * 100)}%`
+}
+
+function fmtUsd(x: number): string {
+  if (x === 0) return '$0'
+  if (x < 0.01) return '<$0.01'
+  return `$${x.toFixed(2)}`
+}
+
+// "+3 requests the logs don't show · $0.02", with what they were on hover.
+function extraLine(c: AgentCapturedTotals | undefined | null): {
+  text: string
+  hint: string
+} | null {
+  const e = c?.extra
+  if (!e || e.count === 0) return null
+  const hint = Object.entries(e.byLabel)
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([label, v]) => `${label}: ${v.count}${v.costUsd ? ` (${fmtUsd(v.costUsd)})` : ''}`)
+    .join('\n')
+  const cost = e.costUsd > 0 ? ` · ${fmtUsd(e.costUsd)}` : ''
+  return {
+    text: `+${e.count} ${e.count === 1 ? 'request' : 'requests'} the logs don't show${cost}`,
+    hint: `Seen by deep capture, not in the session log:\n${hint}`
+  }
 }
 
 function fmtDuration(ms: number): string {
@@ -121,6 +151,7 @@ function StatCard({
 function SessionRow({ s, now }: { s: AgentSession; now: number }): React.JSX.Element {
   const live = now - s.lastActiveAt < LIVE_MS
   const surface = s.entrypoint ? SURFACES[s.entrypoint] || s.entrypoint : null
+  const extra = extraLine(s.captured)
   return (
     <li className="px-3 py-2 border-b border-neutral-800 last:border-0">
       <div className="flex items-center gap-2 min-w-0">
@@ -153,7 +184,122 @@ function SessionRow({ s, now }: { s: AgentSession; now: number }): React.JSX.Ele
         </span>
         {surface && <span className="text-neutral-600"> · {surface}</span>}
       </div>
+      {extra && (
+        <div className="mt-0.5 text-[11px] text-violet-300/90" title={extra.hint}>
+          {extra.text}
+        </div>
+      )}
     </li>
+  )
+}
+
+// The deep capture switch for this project, with a plain status line.
+function CaptureCard({
+  projectRoot,
+  status,
+  unmatched,
+  sessions
+}: {
+  projectRoot: string
+  status: AgentCaptureStatus | null
+  unmatched: AgentCapturedTotals | null
+  sessions: AgentSession[]
+}): React.JSX.Element {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+  const on = !!status?.enabled
+  const active = !!status?.active
+  const error = failed || status?.error || null
+
+  const toggle = async (): Promise<void> => {
+    setBusy(true)
+    setFailed(null)
+    try {
+      const next = await window.pressB.agents.setCapture(projectRoot, !on)
+      if (!next) setFailed('Deep capture is not ready yet. Try again in a moment.')
+    } catch (e) {
+      setFailed(String((e as Error)?.message || e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  let captured = 0
+  let extra = 0
+  let extraCost = 0
+  for (const c of [...sessions.map((s) => s.captured), unmatched]) {
+    if (!c) continue
+    captured += c.exchanges
+    extra += c.extra.count
+    extraCost += c.extra.costUsd
+  }
+
+  return (
+    <div className="mx-3 mt-3 p-2.5 bg-neutral-800 border border-neutral-700 rounded">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-neutral-200">Deep capture</span>
+        <span className="text-[10px] text-neutral-500">Claude Code</span>
+        <button
+          role="switch"
+          aria-checked={on}
+          disabled={busy}
+          onClick={() => void toggle()}
+          title={
+            on
+              ? 'Turn off: new requests go straight to Anthropic again'
+              : "Turn on: route this project's Claude Code sessions through Press B"
+          }
+          className={`ml-auto relative w-8 h-4 rounded-full transition cursor-pointer disabled:opacity-50 ${
+            on ? 'bg-violet-500' : 'bg-neutral-600'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+              on ? 'left-4.5' : 'left-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="mt-1.5 text-[11px] leading-relaxed text-neutral-400">
+        {active ? (
+          <>
+            <span className="text-violet-300">● Capturing Claude Code in this project</span>
+            <span className="text-neutral-500"> · port {status!.port}</span>
+            <div className="text-neutral-500">
+              Sessions already running switch over on their own. Remote Control is off while this is
+              on.
+            </div>
+          </>
+        ) : on && !error ? (
+          <span>Starting…</span>
+        ) : (
+          <span>
+            Also see the requests the logs don&apos;t show (titles, recaps, quota checks) and what
+            they cost. Turning it on adds one line to this project&apos;s
+            .claude/settings.local.json.
+          </span>
+        )}
+      </div>
+
+      {active && captured > 0 && (
+        <div className="mt-1 text-[11px] text-neutral-400">
+          {captured} {captured === 1 ? 'request' : 'requests'} captured
+          {extra > 0 && (
+            <span className="text-violet-300">
+              {' '}
+              · {extra} not in the logs{extraCost > 0 ? ` (${fmtUsd(extraCost)})` : ''}
+            </span>
+          )}
+        </div>
+      )}
+      {error && <div className="mt-1 text-[11px] text-red-400">{error}</div>}
+      {status?.notes.map((n) => (
+        <div key={n} className="mt-1 text-[10px] text-neutral-500">
+          {n}
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -211,8 +357,22 @@ export default function AgentsPanel({
             <span className="text-neutral-200">Prompts</span> count only what you typed.{' '}
             <span className="text-neutral-200">Active</span> time leaves out breaks over 5 minutes.
           </p>
+          <p>
+            <span className="text-violet-300">Deep capture</span> (optional, per project) routes
+            Claude Code&apos;s requests through Press B on this computer and passes them on to
+            Anthropic unchanged. It shows what the logs miss, like helper requests and their cost.
+            Copies stay on this computer for 30 days, with login details removed. When it&apos;s
+            off, or Press B quits, sessions go straight to Anthropic again.
+          </p>
         </div>
       )}
+
+      <CaptureCard
+        projectRoot={summary.projectRoot}
+        status={summary.capture}
+        unmatched={summary.unmatched}
+        sessions={sessions}
+      />
 
       {sessions.length === 0 ? (
         <div className="m-3 p-3 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-400 leading-relaxed">

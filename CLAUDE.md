@@ -33,16 +33,22 @@ src/main/index.ts        main process: window, tray, global shortcut, single-ins
 src/main/deeplink.ts     pressb:// URL parsing + validation
 src/main/ai/             AI layer: anthropic.ts (provider + system prompts), context.ts
                          (buildProjectDigest, the central artifact), *Store.ts (machine-local persistence)
+src/main/agents/         Agent Sessions hub: claudeLogs/codexLogs (session-log readers), service
+                         (live watch), proxy (capture relay), capture + captureWorker (parse, store),
+                         hookup (deep capture switch in .claude/settings.local.json), captureService
 src/preload/             exposes window.pressB via contextBridge (+ index.d.ts types)
-src/renderer/src/        React 19 UI: App.tsx (4 tabs), components/, hooks/ (useTasks,
+src/renderer/src/        React 19 UI: App.tsx (5 tabs), components/, hooks/ (useTasks,
                          usePinnedNotes, useAI), types/, utils/
 extensions/vscode/       VS Code extension: "Create Task/Note in Press B" -> pressb:// link
+config/                  tool configs (electron-vite, electron-builder, eslint, prettier, postcss,
+                         tsconfig.node/web). npm scripts pass their paths; only files tools must
+                         find at the root (package.json, tsconfig.json, dotfiles) stay there
 ```
 
 ## Data and storage
 
 - **Per project:** `.pressb.json` at the project root holds tasks, pinned notes, and settings. It is gitignored here, so the maintainer's own dogfood data stays out of the repo.
-- **Per machine:** stored under userData `press-b-config/`. This covers the project root and recents, the encrypted API key (Electron `safeStorage`), the last brief, dismissed suggestions, and Ask chat history.
+- **Per machine:** stored under userData `press-b-config/`. This covers the project root and recents, the encrypted API key (Electron `safeStorage`), the last brief, dismissed suggestions, and Ask chat history. Deep capture keeps its switch state and the captured traffic in `press-b-config/agents/` (masked, deltas, deleted after 30 days).
 - Never put API keys or other machine-local data in `.pressb.json`.
 
 ## Rules that keep the project healthy
@@ -53,6 +59,8 @@ extensions/vscode/       VS Code extension: "Create Task/Note in Press B" -> pre
 4. **Precision over recall in the watcher.** The comment regex is anchored to line start. Keep the directory ignore list, the source-extension allowlist, and the size cap. Junk tasks poison the AI digest.
 5. **Sanitize anything that becomes a file link.** Accept relative paths only, with no `..` and a positive line number. Follow the existing patterns: `sanitizeLink` in `anthropic.ts` and the parser in `deeplink.ts`.
 6. **Bulk task changes save once.** Use `deleteTasks` and similar helpers; calling the single-item writer in a loop causes a save race.
+7. **Capture never touches the agent's traffic.** The proxy forwards bytes unchanged and streams each chunk on arrival. Copies are handed off only after the reply is sent, and all parsing and saving runs in the worker thread. Never store login headers, and never write captured traffic anywhere inside a repo.
+8. **The switch rewrites, never deletes.** Turning deep capture off, or quitting, rewrites `ANTHROPIC_BASE_URL` to the real API. Running Claude Code sessions pick up a changed value but keep a deleted one (tested: a deleted key left a live session stuck). Touch no other key, and never write a settings file that isn't valid JSON.
 
 ## Workflow
 

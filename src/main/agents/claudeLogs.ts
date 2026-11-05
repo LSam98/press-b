@@ -21,15 +21,15 @@ export function encodeProjectPath(p: string): string {
 }
 
 // Text Claude Code adds on its own (Lab 4 "Who wrote it" rules, dashboard.py TAGS/NOTES).
-const TAGS =
+export const TAGS =
   /<(system-reminder|command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat|bash-input|bash-stdout|bash-stderr)\b[^>]*>[\s\S]*?<\/\1>/g
-const NOTES = [
+export const NOTES = [
   'Tool loaded.',
   '[Request interrupted',
   'Caveat: ',
   'This session is being continued'
 ]
-const LEADING_TAG = /^<[A-Za-z][\w:-]*[\s>/]/
+export const LEADING_TAG = /^<[A-Za-z][\w:-]*[\s>/]/
 
 // The text a person typed, or null if this line isn't a typed prompt.
 // When unsure, it is NOT a prompt: a wrong "You" is worse than a missed one.
@@ -64,6 +64,9 @@ export class ClaudeLogReader {
   private readonly accs = new Map<string, SessionAcc>()
   // Per session: true once any of its cwd lines sits inside the project.
   private readonly verified = new Map<string, boolean | null>()
+  // Every reply id the logs hold: a captured request whose reply is here is
+  // already counted, so it is never added twice.
+  readonly replyIds = new Set<string>()
 
   constructor(readonly projectRoot: string) {}
 
@@ -178,6 +181,7 @@ export class ClaudeLogReader {
         const u = m.usage as AnthropicUsage | undefined
         if (!hasTokens(u)) continue
         const model = String(m.model || '')
+        if (typeof m.id === 'string') this.replyIds.add(m.id)
         acc.addCall(
           (info.main ? '' : 'sub:') + (m.id || line.uuid),
           t,

@@ -1,3 +1,4 @@
+# Run with --config config/electron-builder.yml; paths below resolve from the project root.
 appId: com.pressb.app
 productName: Press B
 directories:
@@ -5,10 +6,13 @@ directories:
 files:
   - '!**/.vscode/*'
   - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!config/*'
+  - '!{.eslintcache,.prettierignore,CHANGELOG.md,README.md,CLAUDE.md}'
+  - '!{.claude,extensions}/**'
+  # The maintainer's own Press B data must never ship
+  - '!{.pressb.json,.devfloat.json}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!tsconfig.json'
 asarUnpack:
   - resources/**
 # pressb:// deep links ("Create in Press B" from the IDE) — NSIS writes the

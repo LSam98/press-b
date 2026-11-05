@@ -28,6 +28,9 @@ import { AnthropicProvider, describeAIError } from './ai/anthropic'
 import { PrivacyScope, SuggestionVolume, SuggestionLens, ChatMessage } from './ai/types'
 import { extractDeepLinkUrl, parseDeepLink } from './deeplink'
 import { AgentService } from './agents/service'
+import { CaptureService } from './agents/captureService'
+import { Hookup } from './agents/hookup'
+import createCaptureWorker from './agents/captureWorker?nodeWorker'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null // module scope so it isn't garbage-collected
@@ -251,6 +254,36 @@ const agentService = new AgentService((summary) => {
   mainWindow?.webContents.send('agents:updated', summary)
 })
 
+// Deep capture (per-project switch): Press B's own proxy + the project's
+// .claude/settings.local.json. State and captured traffic are machine-local.
+const agentsDir = (): string => path.join(app.getPath('userData'), 'press-b-config', 'agents')
+app.whenReady().then(() => {
+  // A second instance (a deep link) only hands over its URL and exits: it must
+  // never touch the first instance's capture.
+  if (!gotSingleInstanceLock) return
+  const hookup = new Hookup(path.join(agentsDir(), 'capture.json'))
+  // A previous run that crashed or was killed may have left a project pointed
+  // at a proxy that no longer exists: point it back at the real API first.
+  try {
+    hookup.repairAll()
+  } catch (e) {
+    console.warn('Deep capture repair failed (ignored):', e)
+  }
+  agentService.capture = new CaptureService(
+    agentsDir(),
+    hookup,
+    () => createCaptureWorker({}),
+    () => agentService.poke()
+  )
+})
+
+ipcMain.handle('agents:setCapture', async (_event, projectRoot: string, on: boolean) => {
+  const capture = agentService.capture
+  if (!capture || !projectRoot) return null
+  if (agentService.projectRoot !== projectRoot) await agentService.start(projectRoot)
+  return capture.setEnabled(projectRoot, !!on)
+})
+
 ipcMain.handle('agents:watch', async (_event, projectRoot: string) => {
   try {
     return await agentService.start(projectRoot)
@@ -263,6 +296,13 @@ ipcMain.handle('agents:watch', async (_event, projectRoot: string) => {
 // Any real quit path (tray Quit, Cmd+Q) must bypass close-to-tray.
 app.on('before-quit', () => {
   isQuitting = true
+  // Synchronous: running sessions must be pointed back at the real API before
+  // the proxy goes away with this process.
+  try {
+    agentService.capture?.shutdownSync()
+  } catch (e) {
+    console.warn('Deep capture shutdown failed:', e)
+  }
   void agentService.stop()
 })
 

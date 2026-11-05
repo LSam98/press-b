@@ -10,7 +10,7 @@
       "windows": {
         "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/electron-vite.cmd"
       },
-      "runtimeArgs": ["--sourcemap"],
+      "runtimeArgs": ["-c", "config/electron.vite.config.ts", "--sourcemap"],
       "env": {
         "REMOTE_DEBUGGING_PORT": "9222"
       }

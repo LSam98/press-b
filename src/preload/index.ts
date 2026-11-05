@@ -67,7 +67,9 @@ const api = {
       const listener = (_event: unknown, summary: unknown): void => callback(summary)
       ipcRenderer.on('agents:updated', listener)
       return () => ipcRenderer.removeListener('agents:updated', listener)
-    }
+    },
+    setCapture: (projectRoot: string, on: boolean) =>
+      ipcRenderer.invoke('agents:setCapture', projectRoot, on)
   },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)

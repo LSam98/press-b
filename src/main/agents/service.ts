@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import { watch, FSWatcher } from 'chokidar'
 import { claudeProjectsDir } from './claudeLogs'
 import { codexSessionsDir } from './codexLogs'
+import { CaptureService } from './captureService'
 import { ProjectLogs } from './collect'
 import { AgentSummary } from './types'
 
@@ -16,6 +17,8 @@ export class AgentService {
   private timer: NodeJS.Timeout | null = null
   private running: Promise<void> | null = null
   private dirty = false
+  private forced = false // push even if no log changed (capture news)
+  capture: CaptureService | null = null
 
   constructor(private readonly onUpdate: (summary: AgentSummary) => void) {}
 
@@ -24,12 +27,17 @@ export class AgentService {
   }
 
   async start(projectRoot: string): Promise<AgentSummary> {
-    if (this.logs?.projectRoot === projectRoot) return this.logs.summary()
+    if (this.logs?.projectRoot === projectRoot) return this.summaryOf(this.logs)
     await this.stop()
     const logs = new ProjectLogs(projectRoot)
     this.logs = logs
+    try {
+      await this.capture?.setProject(projectRoot)
+    } catch (e) {
+      console.warn('Deep capture could not start for this project (ignored):', e)
+    }
     await this.safeRefresh(logs)
-    if (this.logs !== logs) return logs.summary() // switched again meanwhile
+    if (this.logs !== logs) return this.summaryOf(logs) // switched again meanwhile
     for (const dir of [claudeProjectsDir(), codexSessionsDir()]) {
       if (!fs.existsSync(dir)) continue
       const w = watch(dir, {
@@ -43,11 +51,22 @@ export class AgentService {
       w.on('error', (e) => console.warn('Agent log watcher error (ignored):', e))
       this.watchers.push(w)
     }
-    return logs.summary()
+    return this.summaryOf(logs)
   }
 
   summary(): AgentSummary | null {
-    return this.logs?.summary() ?? null
+    return this.logs ? this.summaryOf(this.logs) : null
+  }
+
+  private summaryOf(logs: ProjectLogs): AgentSummary {
+    const root = logs.projectRoot
+    return logs.summary(this.capture?.status(root) ?? null, this.capture?.summaries(root) ?? [])
+  }
+
+  // Capture news (a new exchange, the switch changed): push soon, logs or not.
+  poke(): void {
+    this.forced = true
+    this.schedule()
   }
 
   async stop(): Promise<void> {
@@ -77,7 +96,9 @@ export class AgentService {
     if (!logs) return
     this.running = (async () => {
       const changed = await this.safeRefresh(logs)
-      if (changed && this.logs === logs) this.onUpdate(logs.summary())
+      const forced = this.forced
+      this.forced = false
+      if ((changed || forced) && this.logs === logs) this.onUpdate(this.summaryOf(logs))
     })().then(() => undefined)
     await this.running
     this.running = null
