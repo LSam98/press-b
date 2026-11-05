@@ -78,3 +78,37 @@ export interface PressBData {
     aiSuggestionLenses?: SuggestionLens[]
   }
 }
+
+// Agent sessions (Claude Code, Codex) read from their logs. Mirrors
+// src/main/agents/types.ts and src/preload/index.d.ts.
+export interface AgentTokenTotals {
+  input: number
+  cacheRead: number
+  cacheWrite: number
+  output: number
+}
+
+export interface AgentSession {
+  agent: 'claude' | 'codex'
+  id: string
+  title: string
+  cwd: string
+  branch?: string
+  entrypoint?: string
+  startedAt: number
+  lastActiveAt: number
+  activeMs: number
+  models: string[]
+  prompts: number
+  calls: number
+  tokens: AgentTokenTotals
+  costUsd: number | null
+  unpricedCalls: number
+  byDay: Record<string, AgentTokenTotals & { costUsd: number }>
+}
+
+export interface AgentSummary {
+  projectRoot: string
+  sessions: AgentSession[]
+  updatedAt: number
+}

@@ -9,6 +9,39 @@ export interface DeepLinkPayload {
   text?: string
 }
 
+// Mirrors src/main/agents/types.ts (preload types stay self-contained).
+export interface AgentTokenTotals {
+  input: number
+  cacheRead: number
+  cacheWrite: number
+  output: number
+}
+
+export interface AgentSession {
+  agent: 'claude' | 'codex'
+  id: string
+  title: string
+  cwd: string
+  branch?: string
+  entrypoint?: string
+  startedAt: number
+  lastActiveAt: number
+  activeMs: number
+  models: string[]
+  prompts: number
+  calls: number
+  tokens: AgentTokenTotals
+  costUsd: number | null
+  unpricedCalls: number
+  byDay: Record<string, AgentTokenTotals & { costUsd: number }>
+}
+
+export interface AgentSummary {
+  projectRoot: string
+  sessions: AgentSession[]
+  updatedAt: number
+}
+
 export interface PressBAPI {
   storage: {
     load: (projectRoot: string) => Promise<unknown>
@@ -74,6 +107,10 @@ export interface PressBAPI {
   deeplink: {
     getPending: () => Promise<DeepLinkPayload | null>
     onCreate: (callback: (payload: DeepLinkPayload) => void) => () => void
+  }
+  agents: {
+    watch: (projectRoot: string) => Promise<AgentSummary | null>
+    onUpdated: (callback: (summary: AgentSummary) => void) => () => void
   }
   onTasksUpdated: (callback: () => void) => () => void
 }

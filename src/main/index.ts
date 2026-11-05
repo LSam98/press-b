@@ -27,6 +27,7 @@ import { buildProjectDigest } from './ai/context'
 import { AnthropicProvider, describeAIError } from './ai/anthropic'
 import { PrivacyScope, SuggestionVolume, SuggestionLens, ChatMessage } from './ai/types'
 import { extractDeepLinkUrl, parseDeepLink } from './deeplink'
+import { AgentService } from './agents/service'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null // module scope so it isn't garbage-collected
@@ -244,9 +245,25 @@ ipcMain.handle('deeplink:getPending', () => {
   return url ? parseDeepLink(url, currentProjectRoot) : null
 })
 
+// Agent sessions (Claude Code, Codex): live metrics read from their own session
+// logs. The renderer names the project to watch; updates are pushed.
+const agentService = new AgentService((summary) => {
+  mainWindow?.webContents.send('agents:updated', summary)
+})
+
+ipcMain.handle('agents:watch', async (_event, projectRoot: string) => {
+  try {
+    return await agentService.start(projectRoot)
+  } catch (e) {
+    console.warn('Could not start agent session watch:', e)
+    return null
+  }
+})
+
 // Any real quit path (tray Quit, Cmd+Q) must bypass close-to-tray.
 app.on('before-quit', () => {
   isQuitting = true
+  void agentService.stop()
 })
 
 // Terminal interrupts (Ctrl+C on the dev server, SIGTERM) must fully quit too —

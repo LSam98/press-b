@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- these parse untyped JSON
+   written by other tools; every field is checked before it is used. */
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'

@@ -40,7 +40,11 @@ const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ?
 export function hasTokens(u: AnthropicUsage | null | undefined): boolean {
   if (!u) return false
   return (
-    n(u.input_tokens) + n(u.output_tokens) + n(u.cache_read_input_tokens) + n(u.cache_creation_input_tokens) > 0
+    n(u.input_tokens) +
+      n(u.output_tokens) +
+      n(u.cache_read_input_tokens) +
+      n(u.cache_creation_input_tokens) >
+    0
   )
 }
 

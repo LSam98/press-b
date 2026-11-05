@@ -4,9 +4,11 @@ import TaskList from './components/TaskList'
 import PinnedNotes from './components/PinnedNotes'
 import SettingsPanel from './components/SettingsPanel'
 import AICompanionPanel from './components/AICompanionPanel'
+import AgentsPanel from './components/AgentsPanel'
 import { useTasks } from './hooks/useTasks'
 import { usePinnedNotes } from './hooks/usePinnedNotes'
 import { useAI } from './hooks/useAI'
+import { useAgents } from './hooks/useAgents'
 import {
   IDE,
   PressBData,
@@ -20,7 +22,7 @@ import {
 } from './types'
 import { buildTaskDraftFromDeepLink, buildNoteDraftFromDeepLink } from './utils/deeplink'
 
-type Tab = 'tasks' | 'notes' | 'companion' | 'settings'
+type Tab = 'tasks' | 'notes' | 'companion' | 'agents' | 'settings'
 
 function App(): React.JSX.Element {
   // AI Companion is the default landing tab — re-entering the app greets you with your brief
@@ -77,6 +79,7 @@ function App(): React.JSX.Element {
     ask,
     clearChat
   } = useAI(projectRoot)
+  const agents = useAgents(projectRoot)
 
   // Accept a suggestion → create a real task, then drop the card
   const handleAcceptSuggestion = (s: Suggestion): void => {
@@ -350,10 +353,10 @@ function App(): React.JSX.Element {
       />
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-neutral-700 px-4 py-2">
+      <div className="flex border-b border-neutral-700 px-2 py-2">
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`px-3 py-1 text-sm font-medium transition ${
+          className={`px-2 py-1 text-sm font-medium transition ${
             activeTab === 'tasks'
               ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-neutral-500 hover:text-neutral-300'
@@ -363,7 +366,7 @@ function App(): React.JSX.Element {
         </button>
         <button
           onClick={() => setActiveTab('notes')}
-          className={`px-3 py-1 text-sm font-medium transition ${
+          className={`px-2 py-1 text-sm font-medium transition ${
             activeTab === 'notes'
               ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-neutral-500 hover:text-neutral-300'
@@ -373,7 +376,7 @@ function App(): React.JSX.Element {
         </button>
         <button
           onClick={() => setActiveTab('companion')}
-          className={`px-3 py-1 text-sm font-medium transition ${
+          className={`px-2 py-1 text-sm font-medium transition ${
             activeTab === 'companion'
               ? 'text-amber-400 border-b-2 border-amber-400'
               : 'text-amber-600/70 hover:text-amber-400'
@@ -382,8 +385,19 @@ function App(): React.JSX.Element {
           ✦ AI Companion
         </button>
         <button
+          onClick={() => setActiveTab('agents')}
+          title="Agent sessions (Claude Code, Codex) working on this project"
+          className={`px-2 py-1 text-sm font-medium transition ${
+            activeTab === 'agents'
+              ? 'text-sky-400 border-b-2 border-sky-400'
+              : 'text-sky-600/70 hover:text-sky-400'
+          }`}
+        >
+          ◉ Agents
+        </button>
+        <button
           onClick={() => setActiveTab('settings')}
-          className={`px-3 py-1 text-sm font-medium transition ${
+          className={`px-2 py-1 text-sm font-medium transition ${
             activeTab === 'settings'
               ? 'text-blue-400 border-b-2 border-blue-400'
               : 'text-neutral-500 hover:text-neutral-300'
@@ -441,6 +455,9 @@ function App(): React.JSX.Element {
             onClearChat={clearChat}
             onGoToSettings={() => setActiveTab('settings')}
           />
+        </div>
+        <div className={activeTab === 'agents' ? 'h-full' : 'hidden'}>
+          <AgentsPanel summary={agents.summary} loading={agents.loading} now={agents.now} />
         </div>
         <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}>
           <SettingsPanel

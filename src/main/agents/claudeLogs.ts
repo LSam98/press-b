@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- these parse untyped JSON
+   written by other tools; every field is checked before it is used. */
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -21,7 +23,12 @@ export function encodeProjectPath(p: string): string {
 // Text Claude Code adds on its own (Lab 4 "Who wrote it" rules, dashboard.py TAGS/NOTES).
 const TAGS =
   /<(system-reminder|command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat|bash-input|bash-stdout|bash-stderr)\b[^>]*>[\s\S]*?<\/\1>/g
-const NOTES = ['Tool loaded.', '[Request interrupted', 'Caveat: ', 'This session is being continued']
+const NOTES = [
+  'Tool loaded.',
+  '[Request interrupted',
+  'Caveat: ',
+  'This session is being continued'
+]
 const LEADING_TAG = /^<[A-Za-z][\w:-]*[\s>/]/
 
 // The text a person typed, or null if this line isn't a typed prompt.

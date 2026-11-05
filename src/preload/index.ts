@@ -61,6 +61,14 @@ const api = {
       return () => ipcRenderer.removeListener('deeplink:create', listener)
     }
   },
+  agents: {
+    watch: (projectRoot: string) => ipcRenderer.invoke('agents:watch', projectRoot),
+    onUpdated: (callback: (summary: unknown) => void) => {
+      const listener = (_event: unknown, summary: unknown) => callback(summary)
+      ipcRenderer.on('agents:updated', listener)
+      return () => ipcRenderer.removeListener('agents:updated', listener)
+    }
+  },
   onTasksUpdated: (callback: () => void) => {
     ipcRenderer.on('tasks:updated', callback)
     // Return an unsubscribe function so the renderer can clean up on unmount

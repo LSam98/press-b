@@ -103,7 +103,10 @@ export class SessionAcc {
     return {
       agent: this.agent,
       id: this.id,
-      title: this.title || (fallback.length > 60 ? fallback.slice(0, 59) + '…' : fallback) || 'Untitled session',
+      title:
+        this.title ||
+        (fallback.length > 60 ? fallback.slice(0, 59) + '…' : fallback) ||
+        'Untitled session',
       cwd: this.cwd,
       branch: this.branch,
       entrypoint: this.entrypoint,
